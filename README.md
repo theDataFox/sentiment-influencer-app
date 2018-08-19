@@ -1,7 +1,9 @@
 sentiment-influencer-analysis
 ==============================
 
-sentiment analysis
+sentiment analysis and realtime dashboard for Twitter
+
+Includes live updates to netowrk graphs using sigmajs and realtime sentiment analysis using Firebase, Python and Node
 
 Project Organization
 ------------
