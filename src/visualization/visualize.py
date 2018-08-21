@@ -1,4 +1,4 @@
-# script to take edgelist from twecoll and run into sigma js for output
+# script to take edgelist from twecoll.py and run into sigma js for output
 
 # TODO: read in edgelist file
 # TODO: convert from gml to gexf
@@ -7,8 +7,8 @@
 import networkx as nx
 
 # load gml and convert to gexf
-G = nx.read_gml('../data/influencer/TheDataFox.gml')
-gexf_file = nx.write_gexf(G, '../data/influencer/TheDataFox.gexf')
+G = nx.read_gml('../data/influencer/TheDataFox.json.gml')
+gexf_file = nx.write_gexf(G, '../data/influencer/TheDataFox.json.gexf')
 json_file = nx.json
 
 
