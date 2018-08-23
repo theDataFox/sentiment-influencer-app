@@ -17,16 +17,16 @@ from random import randint as rand
 
 
 def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
+
     """
     Converts GML file to json while adding statistics and community information
     using modularity_maximization. JSON output is usable with D3 force layout and GEXF with sigmajs
     # see: https://cambridge-intelligence.com/keylines-faqs-social-network-analysis/
     """
 
-
     print(outputfile_format.upper(), 'output file selected')
     print('\nReading GML file:', gmlfile)
-    di_graph = nx.read_gml('../../../data/raw/' + gmlfile, label='label',  )
+    di_graph = nx.read_gml('../../../data/raw/' + gmlfile, label='id',  )
     print('Identifying communities...')
     comm_dict = partition(di_graph)
 
@@ -44,6 +44,7 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
     for node, (x, y) in pos.items():
         di_graph.node[node]['x'] = float(x)
         di_graph.node[node]['y'] = float(y)
+
 
     # betweeness centrality
     bc = nx.betweenness_centrality(di_graph)
@@ -85,8 +86,7 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
     odc = nx.out_degree_centrality(di_graph)
     nx.set_node_attributes(di_graph, name='odc', values=odc)
 
-
-    # eignevector centrality
+    # eigen-vector centrality
     edc = nx.eigenvector_centrality(di_graph)
     nx.set_node_attributes(di_graph, name='odc', values=edc)
     """
@@ -138,9 +138,9 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
     
     """
 
-    # giant compnent filter
+    # giant component filter
 
- #   giant = max(nx.connected_component_subgraphs(G), key=len)
+ #   giant = max(nx.connected_component_subgraphs(G), key=len)z
 
     if outputfile_format.upper() == 'JSON':
 
@@ -160,4 +160,4 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
     else: print('Please enter a valid output file format: JSON or GEXF')
 
 
-analyze_convert('TheDataFox.gml', 'TheDataFox', outputfile_format='json')
+analyze_convert('Untitled.gml', 'Untitled', outputfile_format='json')

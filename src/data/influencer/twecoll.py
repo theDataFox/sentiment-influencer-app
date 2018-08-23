@@ -2,21 +2,27 @@
 Analysis
 The statistics I focused on are as follows:
 
-Degree Centrality focuses on individual nodes, counting the number of edges a node has. Nodes with high degree usually play an important role in a network. The degree centrality for a node is the fraction of nodes it is connected to.
+Degree Centrality focuses on individual nodes, counting the number of edges a node has. Nodes with high degree usually
+play an important role in a network. The degree centrality for a node is the fraction of nodes it is connected to.
 
-The degree centrality values are normalized by dividing by the maximum possible degree in a simple graph n-1 where n is the number of nodes in G.
-Eigenvector Centrality measures the importance of a node proportional to the sum of the centrality scores of its neighbors. In other words, a node is important if it is connected to other important nodes.
+The degree centrality values are normalized by dividing by the maximum possible degree in a simple graph n-1 where n is
+the number of nodes in G.
+Eigenvector Centrality measures the importance of a node proportional to the sum of the centrality scores of its
+neighbors. In other words, a node is important if it is connected to other important nodes.
 
 Calculate the eigendecomposition of the pairwise agjacency matrix of the graph.
 Select the eigenvector associated with the largest eigenvalue.
 Element i in the eigenvector gives the centrality of the i-th node.
 Note: The eigenvector calculation is done by the power iteration method and has no guarantee of convergence.
-Louvain Method of community detection. The method is a greedy optimization method that attempts to optimize the "modularity" of a partition of the network. The optimization is performed in two steps.
+Louvain Method of community detection. The method is a greedy optimization method that attempts to
+optimize the "modularity" of a partition of the network. The optimization is performed in two steps.
 
 First, the method looks for "small" communities by optimizing modularity locally.
 Second, it aggregates nodes belonging to the same community and builds a new network whose nodes are the communities.
 These steps are repeated iteratively until a maximum of modularity is attained and a hierarchy of communities is produced.
-Note: Although the exact computational complexity of the method is not known, the method seems to run in time O(n log n) with most of the computational effort spent on the optimization at the first level. Exact modularity optimization is known to be NP-hard.
+Note: Although the exact computational complexity of the method is not known, the method seems to run in time O(n log n)
+ with most of the computational effort spent on the optimization at the first level. Exact modularity optimization
+ is known to be NP-hard.
 
 """
 import argparse
@@ -459,7 +465,8 @@ def _draw(args):
             sys.stdout.write('Fraction Handles in Giant Component = %.2f%%\n' % (100.0 * gc_size / g.vcount()))
             sys.stdout.write('GC Diameter %i (unweighted)\n' % gc.diameter())
             gc_vert = comp[comp.sizes().index(gc_size)]
-            cim = gc.community_infomap(edge_weights=gc.es['weight'], vertex_weights=gc.vs['lfr'])
+            cim = gc.community_infomap(edge_weights=gc.es['weight'],
+                                       vertex_weights=gc.vs['lfr'])
             RGB_tuples = _palette(max(cim.membership) + 1)
             for v in g.vs:
                 gc_v = gc.vs.select(id_eq=v['id'])
@@ -892,7 +899,19 @@ def main():
 
     sp_edgelist = sp.add_parser('edgelist', \
                                 help='generate graph in GML format', \
-                                description='Vertices have the following attributes: twitter user_id, .dat source file, label, link to image file, type, statuses, friends, followers, listed, ffr and lfr. Vertices with a friends-to-followers ratio > 1 have a triangle-up shape, otherwise triangle-down. Label size is proportional to the in-degree. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on infomap and applied to members of the giant component. Black is used for vertices with no edges, with more than %s friends or set to private.' % FMAX)
+                                description='Vertices have the following attributes: twitter user_id, .dat source file, '
+                                            'label, link to image file, type, statuses, friends, followers, listed, ffr '
+                                            'and lfr. '
+                                            'Vertices with a friends-to-followers ratio > 1 have a triangle-up '
+                                            'shape, otherwise triangle-down. '
+                                            'Label size is proportional to the in-degree. '
+                                            'Edges have a width based on their weight attribute. '
+                                            'Weight corresponds to the number of tweets per day since the account was created. '
+                                            'Vertices included in the giant component are colored according to their '
+                                            'membership to a particular community. Otherwise, they are colored in grey. '
+                                            'Community finding is based on infomap and applied to members of the '
+                                            'giant component. Black is used for vertices with no edges, '
+                                            'with more than %s friends or set to private.' % FMAX)
     sp_edgelist.add_argument('-f', '--format', default='png', \
                              choices=('png', 'pdf', 'ps'), \
                              help='graph output format (default: png)')
