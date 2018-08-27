@@ -4,13 +4,11 @@
 
 # TODO: fix relative file paths for file input and export
 # TODO: move definitions of algorithms to README.md
-# TODO: keep label and id from gml
+# TODO: keep label and id from gml -- and keep in json
 
 # import libraries
-# import argparse
 import json
 import networkx as nx
-from networkx.readwrite import json_graph
 from modularity_maximization import partition
 from modularity_maximization.utils import get_modularity
 from random import randint as rand
@@ -26,17 +24,29 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
 
     print(outputfile_format.upper(), 'output file selected')
     print('\nReading GML file:', gmlfile)
-    di_graph = nx.read_gml('../../../data/raw/' + gmlfile, label='id',  )
-    print('Identifying communities...')
-    comm_dict = partition(di_graph)
+    di_graph = nx.read_gml('../../../data/interim/' + gmlfile, label='label') # TODO: this needs to be changed to bring in ID
+   # print(di_graph.nodes(data=True))
+   # print(di_graph.edges(data=True))
+   # print('Identifying communities...')
+   # comm_dict = partition(di_graph)
 
-    print('\nModularity of such partition for network is %.3f' % \
-          get_modularity(di_graph, comm_dict))
+    # print('\nModularity of such partition for network is %.3f' % \
+    #         get_modularity(di_graph, comm_dict))
 
     # adds partition/community number as attribute named 'Modularity Class'
-    print('\nAssigning Communities...')
+    # print('\nAssigning Communities...')
+    idn = 0
     for n, d in di_graph.nodes(data=True):
-        d['mc'] = comm_dict[n]
+        # d['mc'] = comm_dict[n]
+        d['id'] = idn
+        idn += 1
+
+    edge_dict = {}
+    ide = 0
+    for edge, attr in di_graph.edges.items() :
+        edge_dict.update({'id': ide})
+        ide += 1
+        print(edge, attr)
 
     # set positions of nodes
     pos = nx.spring_layout(di_graph)
@@ -148,7 +158,7 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
 
         # create a dictionary in a node-link format that is suitable for JSON serialization
         with open('../../../data/processed/' + outputfile + '.json', 'w') as outfile1:
-            outfile1.write(json.dumps(json_graph.node_link_data(G=di_graph, attrs={'link':'edges', 'name':'label',
+            outfile1.write(json.dumps(nx.readwrite.json_graph.node_link_data(G=di_graph, attrs={'link':'edges', 'name':'label',
                                                                                    'source':'source', 'target':'target'})))
         print('Complete!')
 
@@ -160,4 +170,4 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
     else: print('Please enter a valid output file format: JSON or GEXF')
 
 
-analyze_convert('Untitled.gml', 'Untitled', outputfile_format='json')
+analyze_convert('TheDataFox.gml', 'demo3', outputfile_format='json')
