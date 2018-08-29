@@ -76,8 +76,7 @@ target/
 .ipynb_checkpoints/
 
 # exclude data from source control by default
-/data/processed
-/data/interim
+# add in later
 
 # Mac OS-specific storage files
 .DS_Store
@@ -87,5 +86,47 @@ target/
 
 keyfile.json
 local.json
-node_modules/
+node_modules
 package.json
+package-lock.json
+sigma.js/.gitignore
+sigma.js/.npmignore
+sigma.js/.travis.yml
+sigma.js/CHANGELOG.md
+sigma.js/CONTRIBUTING.draft.md
+sigma.js/Gruntfile.js
+sigma.js/LICENSE.txt
+sigma.js/README.md
+sigma.js/examples/add-node-on-click.html
+sigma.js/examples/animate.html
+sigma.js/examples/api-candy.html
+sigma.js/examples/basic.html
+sigma.js/examples/custom-edge-renderer.html
+sigma.js/examples/custom-node-renderer.html
+sigma.js/examples/data/
+sigma.js/examples/drag-nodes.html
+sigma.js/examples/edge-renderers.html
+sigma.js/examples/events.html
+sigma.js/examples/filters.html
+sigma.js/examples/force.html
+sigma.js/examples/img/
+sigma.js/examples/load-external-gexf.html
+sigma.js/examples/load-external-json.html
+sigma.js/examples/load-neo4j-cypher-query.html
+sigma.js/examples/neighborhoods-plugin.html
+sigma.js/examples/noverlap.html
+sigma.js/examples/parallel-edges.html
+sigma.js/examples/plugin-customEdgeShapes.html
+sigma.js/examples/plugin-customShapes.html
+sigma.js/examples/plugin-edgeDots.html
+sigma.js/examples/plugin-snapshot.html
+sigma.js/examples/scrollable-page.html
+sigma.js/examples/share-camera.html
+sigma.js/examples/svg-export.html
+sigma.js/examples/svg-freestyle-renderer.html
+sigma.js/examples/svg-renderer.html
+sigma.js/package-lock.json
+sigma.js/plugins/
+sigma.js/src/
+sigma.js/test/
+

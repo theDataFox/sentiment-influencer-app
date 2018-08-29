@@ -10,7 +10,7 @@ import json
 import networkx as nx
 from modularity_maximization import partition
 from modularity_maximization.utils import get_modularity
-from random import randint as rand
+
 
 
 def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
@@ -46,7 +46,7 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
 
     # set positions of nodes using layout algo
     print('\nCreating layout...')
-    pos = nx.spring_layout(di_graph)
+    pos = nx.spring_layout(G=di_graph, k=5, iterations=100, weight='weight')
 
     for node, (x, y) in pos.items():
         di_graph.node[node]['x'] = float(x)
@@ -151,7 +151,7 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
 
     if outputfile_format.upper() == 'JSON':
 
-        print('\nExporting' + outputfile + '.json')
+        print('\nExporting ' + outputfile + '.json')
 
         # create a dictionary in a node-link format that is suitable for JSON serialization
         with open('../../../data/processed/' + outputfile + '.json', 'w') as outfile1:

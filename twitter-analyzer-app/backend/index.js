@@ -43,7 +43,6 @@ client.stream('statuses/filter', {track: searchTerms, language: 'en'}, function(
   });
 });
 
-
 // Connect to Firebase
 var admin = require("firebase-admin");
 var serviceAccount = require("./keyfile.json");
@@ -53,11 +52,11 @@ admin.initializeApp({
 });
 
 const db = admin.database();
-console.log('Firebase Initialised!')
+console.log('Firebase Initialised!');
 const tweetRef = db.ref('latest');
 const hashtagRef = db.ref('hashtags');
 
-// Uses a Firebase transaction to incremental a counter
+// Uses a Firebase transaction to increment a counter
 function incrementCount(ref, child, valToIncrement) {
   ref.child(child).transaction(function(data) {
     if (data != null) {
@@ -80,7 +79,7 @@ tweetRef.on('value', function (snap) {
         let token = tokens[i];
         let word = token.lemma.toLowerCase();
   
-        if ((acceptedWordTypes.indexOf(token.partOfSpeech.tag) != -1) && !(word.match(/[^A-Za-z0-9]/g))) {
+        if ((acceptedWordTypes.indexOf(token.partOfSpeech.tag) !== -1) && !(word.match(/[^A-Za-z0-9]/g))) {
           let posRef = db.ref('tokens/' + token.partOfSpeech.tag);
           incrementCount(posRef, word, 1);
         }
@@ -114,14 +113,14 @@ function callNLApi(tweet) {
                   "extractEntities": true,
                   "extractDocumentSentiment": true
                 }
-        }
+        };
 
         let options = {
                 url: textUrl,
                 method: "POST",
                 body: requestBody,
                 json: true
-        }
+        };
 
         request(options, function(err, resp, body) {
                 if ((!err && resp.statusCode == 200) && (body.sentences.length != 0)) {
@@ -149,7 +148,7 @@ function callNLApi(tweet) {
                           score: body.documentSentiment.score,
                           magnitude: body.documentSentiment.magnitude,
                           entities: JSON.stringify(body.entities)
-                        }
+                        };
 
                         tweetRef.set(tweetForFb);
                         table.insert(bqRow, function(error, insertErr, apiResp) {
