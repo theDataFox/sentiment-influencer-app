@@ -567,11 +567,12 @@ def edgelist(args):
             for idzero in id0.values():
                 d = _days(val[7])
                 e.write('''  edge [
+    id %s            
     source %s
     target %s
     weight %s
   ]
-''' % (idzero, val[0], float(val[6]) / d if float(d) > 0 else 0))
+''' % (id1, idzero, val[0], float(val[6]) / d if float(d) > 0 else 0))
         filename = FDAT_DIR + '/' + str(id1) + FDAT_EXT
         if os.path.isfile(filename):
             fdat = open(filename).readlines()
@@ -584,11 +585,12 @@ def edgelist(args):
                         continue
                     d = _days(dat[id2][7])
                     e.write('''  edge [
+    id %s    
     source %s
     target %s
     weight %s
   ]
-''' % (val[0], dat[id2][0], float(dat[id2][6]) / d if float(d) > 0 else 0))
+''' % (id1, val[0], dat[id2][0], float(dat[id2][6]) / d if float(d) > 0 else 0))
         else:
             sys.stdout.write('Missing data for %s\n' % dat[id1][1])
     e.write(']\n')

@@ -14,7 +14,7 @@ from modularity_maximization.utils import get_modularity
 from random import randint as rand
 
 
-def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
+def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
 
     """
     Converts GML file to json while adding statistics and community information
@@ -24,29 +24,19 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
 
     print(outputfile_format.upper(), 'output file selected')
     print('\nReading GML file:', gmlfile)
-    di_graph = nx.read_gml('../../../data/interim/' + gmlfile, label='label') # TODO: this needs to be changed to bring in ID
-   # print(di_graph.nodes(data=True))
-   # print(di_graph.edges(data=True))
-   # print('Identifying communities...')
-   # comm_dict = partition(di_graph)
+    di_graph = nx.read_gml('../../../data/interim/' + gmlfile) # TODO: this needs to be changed to bring in id
+
+    # print(di_graph.nodes(data=True))
+    # print(di_graph.edges(data=True))
+    # print('Identifying communities...')
+    # comm_dict = partition(di_graph)
 
     # print('\nModularity of such partition for network is %.3f' % \
     #         get_modularity(di_graph, comm_dict))
 
     # adds partition/community number as attribute named 'Modularity Class'
     # print('\nAssigning Communities...')
-    idn = 0
-    for n, d in di_graph.nodes(data=True):
-        # d['mc'] = comm_dict[n]
-        d['id'] = idn
-        idn += 1
-
-    edge_dict = {}
-    ide = 0
-    for edge, attr in di_graph.edges.items() :
-        edge_dict.update({'id': ide})
-        ide += 1
-        print(edge, attr)
+    # print(di_graph.nodes())
 
     # set positions of nodes
     pos = nx.spring_layout(di_graph)
@@ -54,7 +44,6 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
     for node, (x, y) in pos.items():
         di_graph.node[node]['x'] = float(x)
         di_graph.node[node]['y'] = float(y)
-
 
     # betweeness centrality
     bc = nx.betweenness_centrality(di_graph)
@@ -150,16 +139,16 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
 
     # giant component filter
 
- #   giant = max(nx.connected_component_subgraphs(G), key=len)z
+    # giant = max(nx.connected_component_subgraphs(G), key=len)z
 
     if outputfile_format.upper() == 'JSON':
 
-        print('\nExporting JSON file..')
+        print('\nExporting JSON file...\n', outputfile)
 
         # create a dictionary in a node-link format that is suitable for JSON serialization
         with open('../../../data/processed/' + outputfile + '.json', 'w') as outfile1:
             outfile1.write(json.dumps(nx.readwrite.json_graph.node_link_data(G=di_graph, attrs={'link':'edges', 'name':'label',
-                                                                                   'source':'source', 'target':'target'})))
+                                                                                   'source':'source', 'target':'target', 'id':'id'})))
         print('Complete!')
 
     elif outputfile_format.upper() == 'GEXF':
@@ -170,4 +159,4 @@ def analyze_convert(gmlfile, outputfile,outputfile_format='json'):
     else: print('Please enter a valid output file format: JSON or GEXF')
 
 
-analyze_convert('TheDataFox.gml', 'demo3', outputfile_format='json')
+analyze_convert('TheDataFox.gml', 'TheDataFox', outputfile_format='json')
