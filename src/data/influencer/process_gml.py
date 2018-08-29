@@ -4,7 +4,6 @@
 
 # TODO: fix relative file paths for file input and export
 # TODO: move definitions of algorithms to README.md
-# TODO: keep label and id from gml -- and keep in json
 
 # import libraries
 import json
@@ -24,27 +23,36 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
 
     print(outputfile_format.upper(), 'output file selected')
     print('\nReading GML file:', gmlfile)
-    di_graph = nx.read_gml('../../../data/interim/' + gmlfile) # TODO: this needs to be changed to bring in id
+    di_graph = nx.read_gml('../../../data/interim/' + gmlfile, label='id')
 
-    # print(di_graph.nodes(data=True))
-    # print(di_graph.edges(data=True))
-    # print('Identifying communities...')
-    # comm_dict = partition(di_graph)
+    # re-assign node id as attr
+    node_id_dict = {}
+    for id in di_graph.node:
+        print(id)
+        node_id_dict[id] = int(id)
+       # di_graph.node[node]['id'] = id
+    nx.set_node_attributes(di_graph, name='id', values=node_id_dict)
 
-    # print('\nModularity of such partition for network is %.3f' % \
-    #         get_modularity(di_graph, comm_dict))
+    # find communities and assign
+    print('Identifying communities...')
+    comm_dict = partition(di_graph)
 
-    # adds partition/community number as attribute named 'Modularity Class'
-    # print('\nAssigning Communities...')
-    # print(di_graph.nodes())
+    print('\nModularity of such partition for network is %.3f' % \
+            get_modularity(di_graph, comm_dict))
 
-    # set positions of nodes
+    print('\nAssigning Communities...')
+    for n, d in di_graph.nodes(data=True):
+        d['mc'] = comm_dict[n]
+
+    # set positions of nodes using layout algo
+    print('\nCreating layout...')
     pos = nx.spring_layout(di_graph)
 
     for node, (x, y) in pos.items():
         di_graph.node[node]['x'] = float(x)
         di_graph.node[node]['y'] = float(y)
 
+    print('\nCalculating network statistics...')
     # betweeness centrality
     bc = nx.betweenness_centrality(di_graph)
     nx.set_node_attributes(di_graph, name='bc', values=bc)
@@ -139,20 +147,21 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
 
     # giant component filter
 
-    # giant = max(nx.connected_component_subgraphs(G), key=len)z
+    # giant = max(nx.connected_component_subgraphs(G), key=len)
 
     if outputfile_format.upper() == 'JSON':
 
-        print('\nExporting JSON file...\n', outputfile)
+        print('\nExporting' + outputfile + '.json')
 
         # create a dictionary in a node-link format that is suitable for JSON serialization
         with open('../../../data/processed/' + outputfile + '.json', 'w') as outfile1:
-            outfile1.write(json.dumps(nx.readwrite.json_graph.node_link_data(G=di_graph, attrs={'link':'edges', 'name':'label',
-                                                                                   'source':'source', 'target':'target', 'id':'id'})))
+            outfile1.write(json.dumps(nx.readwrite.json_graph.node_link_data(G=di_graph, attrs={'link':'edges',
+                                                                                                'name':'id',
+                                                                                   'source':'source', 'target':'target'})))
         print('Complete!')
 
     elif outputfile_format.upper() == 'GEXF':
-        print('\nExporting GEXF file..')
+        print('\nExporting GEXF file...',outputfile,'.gexf')
         nx.write_gexf(di_graph, '../../../data/processed/' + outputfile + '.gexf')
         print('\nComplete!')
 

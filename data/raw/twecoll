@@ -19,7 +19,8 @@ optimize the "modularity" of a partition of the network. The optimization is per
 
 First, the method looks for "small" communities by optimizing modularity locally.
 Second, it aggregates nodes belonging to the same community and builds a new network whose nodes are the communities.
-These steps are repeated iteratively until a maximum of modularity is attained and a hierarchy of communities is produced.
+These steps are repeated iteratively until a maximum of modularity is attained and a hierarchy of communities is
+produced.
 Note: Although the exact computational complexity of the method is not known, the method seems to run in time O(n log n)
  with most of the computational effort spent on the optimization at the first level. Exact modularity optimization
  is known to be NP-hard.
@@ -398,7 +399,7 @@ def init(args):
                 bag += next_items
                 waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10, 30)
                 sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
-                e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(bag)))
+                    e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(bag)))
                 sys.stderr.flush()
                 time.sleep(waiting_time)
                 sys.stderr.write('\n')
@@ -447,7 +448,7 @@ def _draw(args):
     sys.stdout.write('%s Handles\n%s Follow Relationships\n' % (g.vcount(), g.ecount()))
     sys.stdout.write('Avg Shortest Path = %.6f\n' % g.average_path_length())
     sys.stdout.write('In-Degree Distribution mean = %.6f, sd = %.6f\n' % (
-    g.degree_distribution(mode=igraph.IN).mean, g.degree_distribution(mode=igraph.IN).sd))
+        g.degree_distribution(mode=igraph.IN).mean, g.degree_distribution(mode=igraph.IN).sd))
     sys.stdout.write('Clustering Coefficient = %.6f\n' % g.transitivity_undirected())
     sys.stdout.write('Degree Assortativity = %.6f\n' % g.assortativity_degree())
     width = height = int(750 + g.vcount() * 4.73 - g.vcount() ** 2 * 1.55e-3)
@@ -528,14 +529,15 @@ def edgelist(args):
                 # col 11: handle arg
     id0 = {user_id: val[0] for user_id, val in dat.iteritems() if val[1] in args.screen_name}
     e = open('_'.join(args.screen_name) + EDG_EXT, 'w')
-    e.write('graph [\n  directed 1\n')
+    e.write('graph [\n  directed 1\n') # TODO: remove this for automation
+    j = 0
     for user_id, val in dat.iteritems():
         if not args.ego and val[1] in args.screen_name:
             continue
         if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(user_id) + FDAT_EXT):
             continue
         e.write('''  node [
-    id %s
+    id "%s"
     user_id "%s"
     file "%s.dat"
     label "%s"
@@ -545,8 +547,8 @@ def edgelist(args):
     friends %s
     followers %s
     listed %s''' % (val[0], user_id, val[11], val[1], os.path.abspath(val[9]), val[2], val[6], val[3], val[4], val[5]))
-        ffr = (float(val[4]) / float(val[3])) if float(val[3]) > 0 else 0
-        lfr = (10 * float(val[5]) / float(val[4])) if float(val[4]) > 0 else 0
+        ffr = (float(val[4]) / float(val[3])) if float(val[3]) > 0 else 0 # friends to followers ratio
+        lfr = (10 * float(val[5]) / float(val[4])) if float(val[4]) > 0 else 0 # listed to followers ratio
         e.write('\n    ffr %.4f' % ffr)
         e.write('\n    lfr %.4f' % lfr)
         if len(args.screen_name) > 1:
@@ -558,7 +560,9 @@ def edgelist(args):
             else:
                 e.write('\n    shape "triangle-down"')
         e.write('\n  ]\n')
+
     for id1, val in dat.iteritems():
+
         if id1 in id0.keys():
             continue
         if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(id1) + FDAT_EXT):
@@ -566,13 +570,14 @@ def edgelist(args):
         if args.ego:
             for idzero in id0.values():
                 d = _days(val[7])
+                j += 1
                 e.write('''  edge [
-    id %s            
-    source %s
-    target %s
+    id "%s"            
+    source "%s"
+    target "%s"
     weight %s
   ]
-''' % (id1, idzero, val[0], float(val[6]) / d if float(d) > 0 else 0))
+''' % (j, idzero, val[0], float(val[6]) / d if float(d) > 0 else 0))
         filename = FDAT_DIR + '/' + str(id1) + FDAT_EXT
         if os.path.isfile(filename):
             fdat = open(filename).readlines()
@@ -584,13 +589,14 @@ def edgelist(args):
                     if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(id2) + FDAT_EXT):
                         continue
                     d = _days(dat[id2][7])
+                    j += 1
                     e.write('''  edge [
-    id %s    
-    source %s
-    target %s
+    id "%s"    
+    source "%s"
+    target "%s"
     weight %s
   ]
-''' % (id1, val[0], dat[id2][0], float(dat[id2][6]) / d if float(d) > 0 else 0))
+''' % (j, val[0], dat[id2][0], float(dat[id2][6]) / d if float(d) > 0 else 0))
         else:
             sys.stdout.write('Missing data for %s\n' % dat[id1][1])
     e.write(']\n')
@@ -643,7 +649,7 @@ def fetch(args):
                     waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,
                                                                                                                    30)
                     sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
-                    e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
+                        e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
                     sys.stderr.flush()
                     time.sleep(waiting_time)
                     cursor = e.cursor
@@ -683,7 +689,7 @@ def _destroy(screen_name):
             elif e.code in WAIT_CODES:
                 waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10, 30)
                 sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
-                e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
+                    e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
                 sys.stderr.flush()
                 time.sleep(waiting_time + random.randint(10, 30))
                 dat.append(item)
@@ -767,11 +773,14 @@ def tweets(args):
     while True:
         try:
             if args.query:
-                url = 'https://api.twitter.com/1.1/search/tweets.json?q=%s&result_type=recent&count=100&tweet_mode=extended'
+                url = 'https://api.twitter.com/1.1/search/tweets.json?q=%s&result_type=recent&count=100&tweet_mode' \
+                      '=extended'
             elif args.l:
-                url = 'https://api.twitter.com/1.1/lists/statuses.json?slug=' + args.l + '&owner_screen_name=%s&count=100&tweet_mode=extended'
+                url = 'https://api.twitter.com/1.1/lists/statuses.json?slug=' + args.l + \
+                      '&owner_screen_name=%s&count=100&tweet_mode=extended'
             else:
-                url = 'https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=%s&count=200&tweet_mode=extended'
+                url = 'https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=%s&count=200&tweet_mode' \
+                      '=extended'
             if max_id:
                 url += '&max_id=%i' % max_id
             conn = urllib2.urlopen(url % args.screen_name)
@@ -819,7 +828,8 @@ def tweets(args):
 class StatsAction(argparse.Action):
     def __call__(self, parse, namespace, values, option_string=None):
         _replace_opener()
-        url = 'https://api.twitter.com/1.1/application/rate_limit_status.json?resources=users,friends,statuses,search,favorites'
+        url = 'https://api.twitter.com/1.1/application/rate_limit_status.json?resources=users,friends,statuses,' \
+              'search,favorites'
         conn = urllib2.urlopen(url)
         data = json.loads(conn.read())
         conn.close()
@@ -901,16 +911,20 @@ def main():
 
     sp_edgelist = sp.add_parser('edgelist', \
                                 help='generate graph in GML format', \
-                                description='Vertices have the following attributes: twitter user_id, .dat source file, '
-                                            'label, link to image file, type, statuses, friends, followers, listed, ffr '
+                                description='Vertices have the following attributes: twitter user_id, .dat source '
+                                            'file, '
+                                            'label, link to image file, type, statuses, friends, followers, listed, '
+                                            'ffr '
                                             'and lfr. '
                                             'Vertices with a friends-to-followers ratio > 1 have a triangle-up '
                                             'shape, otherwise triangle-down. '
                                             'Label size is proportional to the in-degree. '
                                             'Edges have a width based on their weight attribute. '
-                                            'Weight corresponds to the number of tweets per day since the account was created. '
+                                            'Weight corresponds to the number of tweets per day since the account was '
+                                            'created. '
                                             'Vertices included in the giant component are colored according to their '
-                                            'membership to a particular community. Otherwise, they are colored in grey. '
+                                            'membership to a particular community. Otherwise, they are colored in '
+                                            'grey. '
                                             'Community finding is based on infomap and applied to members of the '
                                             'giant component. Black is used for vertices with no edges, '
                                             'with more than %s friends or set to private.' % FMAX)
