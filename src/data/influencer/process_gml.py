@@ -30,7 +30,6 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     for id in di_graph.node:
         print(id)
         node_id_dict[id] = int(id)
-       # di_graph.node[node]['id'] = id
     nx.set_node_attributes(di_graph, name='id', values=node_id_dict)
 
     # find communities and assign
@@ -44,15 +43,17 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     for n, d in di_graph.nodes(data=True):
         d['mc'] = comm_dict[n]
 
-    # set positions of nodes using layout algo
+    # set positions of nodes using layout algorithm
     print('\nCreating layout...')
     pos = nx.spring_layout(G=di_graph, k=5, iterations=100, weight='weight')
 
+    # positions from layout
     for node, (x, y) in pos.items():
         di_graph.node[node]['x'] = float(x)
         di_graph.node[node]['y'] = float(y)
 
     print('\nCalculating network statistics...')
+
     # betweeness centrality
     bc = nx.betweenness_centrality(di_graph)
     nx.set_node_attributes(di_graph, name='bc', values=bc)
@@ -87,8 +88,8 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     at in-degree (number of inbound links) and out-degree (number of outbound links) as distinct measures, 
     for example  when looking at transactional data or account activity.
     """
-    idc = nx.in_degree_centrality(di_graph)
-    nx.set_node_attributes(di_graph, name='idc', values=idc)
+    size = nx.in_degree_centrality(di_graph)
+    nx.set_node_attributes(di_graph, name='size', values=size)
 
     odc = nx.out_degree_centrality(di_graph)
     nx.set_node_attributes(di_graph, name='odc', values=odc)
@@ -144,6 +145,8 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     understanding citations and authority.
     
     """
+    # add in curve for sigma.js
+    nx.set_edge_attributes(di_graph, name='type', values='curve')
 
     # giant component filter
 

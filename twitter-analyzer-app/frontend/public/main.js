@@ -44,7 +44,6 @@ database.ref('latest').on('value', function (data) {
         }
     }
 
-
     $('#latest-tweet').fadeOut();
     $('#latest-tweet').html('');
     $('#latest-tweet').fadeIn();
