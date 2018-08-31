@@ -6,11 +6,12 @@
 # TODO: move definitions of algorithms to README.md
 
 # import libraries
+import numpy as np
 import json
 import networkx as nx
 from modularity_maximization import partition
 from modularity_maximization.utils import get_modularity
-
+import matplotlib.pyplot as plt
 
 
 def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
@@ -28,7 +29,6 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     # re-assign node id as attr
     node_id_dict = {}
     for id in di_graph.node:
-        print(id)
         node_id_dict[id] = int(id)
     nx.set_node_attributes(di_graph, name='id', values=node_id_dict)
 
@@ -40,14 +40,39 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
             get_modularity(di_graph, comm_dict))
 
     print('\nAssigning Communities...')
+
+    # get unique set of communities
+    comm_unique_set = set()
     for n, d in di_graph.nodes(data=True):
         d['mc'] = comm_dict[n]
+        comm_unique_set.add(d['mc'])
+
+    # create colormap
+    cmap = plt.get_cmap('spectral')
+    colors = (cmap(np.linspace(0, 1, len(comm_unique_set)))) * 255
+
+    # assign colors to each community group
+    color_mapping = {}
+    counter = 0
+    for i in list(comm_unique_set):
+        color_mapping[i] = colors[counter]
+        counter += 1
+
+    # applying colors to nodes iteratively
+    for n, d in di_graph.nodes(data=True):
+        for group in color_mapping.keys():
+            if d['mc'] == group:
+                d['color'] = str.replace(np.array2string(color_mapping[group]), ' ', ',')
+                # print(type(d['color']))
+
+        
+
+    # TODO: change ndarray to string
 
     # set positions of nodes using layout algorithm
     print('\nCreating layout...')
     pos = nx.spring_layout(G=di_graph, k=5, iterations=100, weight='weight')
-
-    # positions from layout
+    # positions from layout applied to node attributes
     for node, (x, y) in pos.items():
         di_graph.node[node]['x'] = float(x)
         di_graph.node[node]['y'] = float(y)
@@ -88,6 +113,7 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     at in-degree (number of inbound links) and out-degree (number of outbound links) as distinct measures, 
     for example  when looking at transactional data or account activity.
     """
+    # TODO: check size of node in html file
     size = nx.in_degree_centrality(di_graph)
     nx.set_node_attributes(di_graph, name='size', values=size)
 
@@ -132,7 +158,6 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     # page rank
     pr = nx.pagerank(di_graph)
     nx.set_node_attributes(di_graph, name='pr', values=pr)
-
     """
     Definition: PageRank is a variant of EigenCentrality, also assigning nodes a score based on their connections,
     and their connections’ connections. The difference is that PageRank also takes link direction and weight into 
@@ -145,8 +170,6 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     understanding citations and authority.
     
     """
-    # add in curve for sigma.js
-    nx.set_edge_attributes(di_graph, name='type', values='curve')
 
     # giant component filter
 
@@ -168,7 +191,8 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
         nx.write_gexf(di_graph, '../../../data/processed/' + outputfile + '.gexf')
         print('\nComplete!')
 
-    else: print('Please enter a valid output file format: JSON or GEXF')
+    else:
+        print('Please enter a valid output file format: JSON or GEXF')
 
 
 analyze_convert('TheDataFox.gml', 'TheDataFox', outputfile_format='json')
