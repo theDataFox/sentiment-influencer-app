@@ -12,13 +12,18 @@ import networkx as nx
 from modularity_maximization import partition
 from modularity_maximization.utils import get_modularity
 import matplotlib.pyplot as plt
+import re
+# from fa2 import ForceAtlas2
 
 
 def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
-
     """
     Converts GML file to json while adding statistics and community information
-    using modularity_maximization. JSON output is usable with D3 force layout and GEXF with sigmajs
+    coloring, node size and edge weight included
+
+    using modularity_maximization.
+
+    JSON output is usable with D3 force layout and GEXF with sigmajs
     # see: https://cambridge-intelligence.com/keylines-faqs-social-network-analysis/
     """
 
@@ -37,7 +42,7 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     comm_dict = partition(di_graph)
 
     print('\nModularity of such partition for network is %.3f' % \
-            get_modularity(di_graph, comm_dict))
+          get_modularity(di_graph, comm_dict))
 
     print('\nAssigning Communities...')
 
@@ -48,8 +53,9 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
         comm_unique_set.add(d['mc'])
 
     # create colormap
-    cmap = plt.get_cmap('spectral')
+    cmap = plt.get_cmap('cool')
     colors = (cmap(np.linspace(0, 1, len(comm_unique_set)))) * 255
+    colors = np.round(colors, decimals=0)
 
     # assign colors to each community group
     color_mapping = {}
@@ -62,16 +68,46 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     for n, d in di_graph.nodes(data=True):
         for group in color_mapping.keys():
             if d['mc'] == group:
-                d['color'] = str.replace(np.array2string(color_mapping[group]), ' ', ',')
-                # print(type(d['color']))
+                d['color'] = re.sub(r'\s+', '', np.array2string(color_mapping[group], separator=','))
+                d['color'] = str.replace(d['color'], '255.]', '1)')
+                d['color'] = str.replace(d['color'], '[', 'rgba(')
+                d['color'] = str.replace(d['color'], '.', '')
 
-        
+    # loop through nodes and edges, if edge source == node id then color same
+    for n, node_d in di_graph.nodes(data=True):
+        for source, target, edge_d in di_graph.edges(data=True):
+            if source == n:
+                edge_d['color'] = node_d['color']
+                edge_d['color'] = edge_d['color'].replace(',1)', ',0.1)')
 
-    # TODO: change ndarray to string
+
 
     # set positions of nodes using layout algorithm
     print('\nCreating layout...')
-    pos = nx.spring_layout(G=di_graph, k=5, iterations=100, weight='weight')
+    # forceatlas2 = ForceAtlas2(
+    #     # Behavior alternatives
+    #     outboundAttractionDistribution=False,  # Dissuade hubs
+    #     linLogMode=False,  # NOT IMPLEMENTED
+    #     adjustSizes=False,  # Prevent overlap (NOT IMPLEMENTED)
+    #     edgeWeightInfluence=1.0,
+    #
+    #     # Performance
+    #     jitterTolerance=1.0,  # Tolerance
+    #     barnesHutOptimize=True,
+    #     barnesHutTheta=1.2,
+    #     multiThreaded=False,  # NOT IMPLEMENTED
+    #
+    #     # Tuning
+    #     scalingRatio=2.0,
+    #     strongGravityMode=False,
+    #     gravity=1.0,
+    #
+    #     # Log
+    #     verbose=True)
+    #
+    # positions = forceatlas2.forceatlas2_networkx_layout(G, pos=None, iterations=2000)
+    pos = nx.spring_layout(G=di_graph, iterations=100, weight='weight', scale=1, k=5)
+
     # positions from layout applied to node attributes
     for node, (x, y) in pos.items():
         di_graph.node[node]['x'] = float(x)
@@ -181,13 +217,14 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
 
         # create a dictionary in a node-link format that is suitable for JSON serialization
         with open('../../../data/processed/' + outputfile + '.json', 'w') as outfile1:
-            outfile1.write(json.dumps(nx.readwrite.json_graph.node_link_data(G=di_graph, attrs={'link':'edges',
-                                                                                                'name':'id',
-                                                                                   'source':'source', 'target':'target'})))
+            outfile1.write(json.dumps(nx.readwrite.json_graph.node_link_data(G=di_graph, attrs={'link': 'edges',
+                                                                                                'name': 'id',
+                                                                                                'source': 'source',
+                                                                                                'target': 'target'})))
         print('Complete!')
 
     elif outputfile_format.upper() == 'GEXF':
-        print('\nExporting GEXF file...',outputfile,'.gexf')
+        print('\nExporting GEXF file...', outputfile, '.gexf')
         nx.write_gexf(di_graph, '../../../data/processed/' + outputfile + '.gexf')
         print('\nComplete!')
 
