@@ -539,7 +539,7 @@ def edgelist(args):
         if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(user_id) + FDAT_EXT):
             continue
         e.write('''  node [
-    id "%s"
+    id %s
     user_id "%s"
     file "%s.dat"
     label "%s"
@@ -574,10 +574,10 @@ def edgelist(args):
                 d = _days(val[7])
                 j += 1
                 e.write('''  edge [
-    id "%s"            
-    source "%s"
-    target "%s"
-    weight %s
+    id %s            
+    source %s
+    target %s
+    size %s
   ]
 ''' % (j, idzero, val[0], float(val[6]) / d if float(d) > 0 else 0))
         filename = FDAT_DIR + '/' + str(id1) + FDAT_EXT
@@ -593,10 +593,10 @@ def edgelist(args):
                     d = _days(dat[id2][7])
                     j += 1
                     e.write('''  edge [
-    id "%s"    
-    source "%s"
-    target "%s"
-    weight %s
+    id %s    
+    source %s
+    target %s
+    size %s
   ]
 ''' % (j, val[0], dat[id2][0], float(dat[id2][6]) / d if float(d) > 0 else 0))
         else:

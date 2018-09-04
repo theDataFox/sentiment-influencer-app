@@ -1,61 +1,42 @@
-#!/usr/bin/env python
-
-# working
-# TODO: x,y coordinates, layout, stats,
-import sys
-import re
-
-def gml_sub(blob):
-
-    lines = []
-    for line in blob.split('\n'):
-        line = line.strip()
-        lines.append(line)
-    blob = "\n".join(lines)
-
-    blob = blob.replace('\n\n', '\n')
-    blob = blob.replace(']\n', '},\n')
-    blob = blob.replace('[\n', '{')
-    blob = blob.replace('\n{', '\n    {')
-    for s in ['id', 'label', 'source', 'target', 'value', 'file', 'user_id', 'ffr', 'lfr', 'image', 'type', 'friends',
-              'statuses', 'followers', 'listed', 'shape', 'weight']:
-            blob = re.sub(r'\b%s\b' % s, '"%s":' % s, blob )
-
-    blob = blob.replace('\n"', ', "')
-    blob = blob.replace('\n}', '}')
-    return blob.strip('\n')
-
-def main(graphfile):
-    """
-    Converts GraphML file to json
-    """
-
-    with open(graphfile, 'r') as f:
-        blob = f.read()
-    blob = ''.join(blob.split('node')[1:])
-    nodes = blob.split('edge')[0]
-    edges = ''.join(blob.split('edge')[1:]).strip().rstrip(']')
-
-    nodes = gml_sub(nodes)
-    edges = gml_sub(edges)
-
-    print ('{\n  "nodes":[')
-    print (nodes.rstrip(','))
-    print ('  ],\n  "edges":[')
-    print ('    ' + edges.rstrip(','))
-    print ('  ]\n}\n')
+import os
+import json
+import igraph as ig
 
 
-main('TheDataFox.gml')
+def ig_to_json(graph, path):
+    assert isinstance(graph, ig.Graph)
+    nodes = []
+    edges = []
 
+    if not 'layout' in graph.attributes():
+        graph['layout'] = graph.layout_auto()
 
-#This will get you a list of exact matches.
-#
-# matches = [c for c in checklist if c in words]
-#
-# Which is the same as:
-#
-# matches = []
-# for c in checklist:
-#   if c in words:
-#     matches.append(c)
+    for v, coords in zip(graph.vs, graph['layout']):
+        v_id = str(v.index)
+        v_attributes = v.attributes()
+        v_label = v_attributes.pop('label', None)
+        if not v_label:
+            v_label = v_id
+        v_size = v_attributes.pop('size', None)
+        if v_size:
+            v_size = float(v_size)
+        v_x = coords[0]
+        v_y = coords[1]
+        node = dict(id=v_id, label=v_label, size=v_size, x=v_x, y=v_y, attributes=v_attributes)
+        nodes.append(node)
+
+    for e in graph.es:
+        e_id = str(e.index)
+        e_source = str(e.source)
+        e_target = str(e.target)
+        e_attributes = e.attributes()
+        e_size = e_attributes.pop('size', None)
+        if e_size:
+            e_size = float(e_size)
+        edge = dict(id=e_id, source=e_source, target=e_target, size=e_size, attributes=e_attributes)
+        edges.append(edge)
+
+    data = dict(nodes=nodes, edges=edges)
+    with open(path, 'w') as f:
+        json.dump(data, f, ensure_ascii=False)
+    return os.path.exists(path)

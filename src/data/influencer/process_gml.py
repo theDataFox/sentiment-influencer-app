@@ -13,10 +13,29 @@ from modularity_maximization import partition
 from modularity_maximization.utils import get_modularity
 import matplotlib.pyplot as plt
 import re
-# from fa2 import ForceAtlas2
+import igraph as ig
+
+
+def analyze_igraph(gmlfile, outputfile, outputfile_format='json'):
+
+    print(outputfile_format.upper(), 'output file selected')
+    print('\nReading GML file:', gmlfile)
+    di_graph = ig.Graph.Read_GML('../../../data/interim/' + gmlfile)
+
+    # generate list of community groupings
+    print('Identifying communities...')
+
+    # cluster assignment
+    cl = di_graph.community_infomap(edge_weights='size', trials=10)
+    di_graph.vs["mc"] = cl.membership
+
+
+    print('Writing initial GML')
+    di_graph.write_gml(f='../../../data/interim/demo.gml')
 
 
 def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
+
     """
     Converts GML file to json while adding statistics and community information
     coloring, node size and edge weight included
@@ -26,7 +45,7 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     JSON output is usable with D3 force layout and GEXF with sigmajs
     # see: https://cambridge-intelligence.com/keylines-faqs-social-network-analysis/
     """
-
+    print('Starting conversion to JSON\n')
     print(outputfile_format.upper(), 'output file selected')
     print('\nReading GML file:', gmlfile)
     di_graph = nx.read_gml('../../../data/interim/' + gmlfile, label='id')
@@ -104,9 +123,8 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     #
     #     # Log
     #     verbose=True)
-    #
-    # positions = forceatlas2.forceatlas2_networkx_layout(G, pos=None, iterations=2000)
-    pos = nx.spring_layout(G=di_graph, iterations=100, weight='weight', scale=1, k=5)
+
+    pos = nx.spring_layout(G=di_graph, iterations=50, weight='weight', scale=5, k=1)
 
     # positions from layout applied to node attributes
     for node, (x, y) in pos.items():
@@ -207,10 +225,6 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     
     """
 
-    # giant component filter
-
-    # giant = max(nx.connected_component_subgraphs(G), key=len)
-
     if outputfile_format.upper() == 'JSON':
 
         print('\nExporting ' + outputfile + '.json')
@@ -232,4 +246,6 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
         print('Please enter a valid output file format: JSON or GEXF')
 
 
+# analyze_igraph('TheDataFox.gml', 'demo', outputfile_format='json')
 analyze_convert('TheDataFox.gml', 'TheDataFox', outputfile_format='json')
+
