@@ -13,7 +13,6 @@ from modularity_maximization import partition
 from modularity_maximization.utils import get_modularity
 import matplotlib.pyplot as plt
 import re
-import igraph as ig
 
 
 def analyze_igraph(gmlfile, outputfile, outputfile_format='json'):
@@ -103,26 +102,6 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
 
     # set positions of nodes using layout algorithm
     print('\nCreating layout...')
-    # forceatlas2 = ForceAtlas2(
-    #     # Behavior alternatives
-    #     outboundAttractionDistribution=False,  # Dissuade hubs
-    #     linLogMode=False,  # NOT IMPLEMENTED
-    #     adjustSizes=False,  # Prevent overlap (NOT IMPLEMENTED)
-    #     edgeWeightInfluence=1.0,
-    #
-    #     # Performance
-    #     jitterTolerance=1.0,  # Tolerance
-    #     barnesHutOptimize=True,
-    #     barnesHutTheta=1.2,
-    #     multiThreaded=False,  # NOT IMPLEMENTED
-    #
-    #     # Tuning
-    #     scalingRatio=2.0,
-    #     strongGravityMode=False,
-    #     gravity=1.0,
-    #
-    #     # Log
-    #     verbose=True)
 
     pos = nx.spring_layout(G=di_graph, iterations=50, weight='weight', scale=5, k=1)
 
@@ -152,8 +131,8 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     
     """
     # degree centrality
-    dc = nx.degree_centrality(di_graph)
-    nx.set_node_attributes(di_graph, name='dc', values=dc)
+    size = nx.degree_centrality(di_graph)
+    nx.set_node_attributes(di_graph, name='size', values=size)
 
     """
     Definition: Degree centrality assigns an importance score based purely on the number of links held by each node. 
@@ -167,16 +146,16 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     at in-degree (number of inbound links) and out-degree (number of outbound links) as distinct measures, 
     for example  when looking at transactional data or account activity.
     """
-    # TODO: check size of node in html file
-    size = nx.in_degree_centrality(di_graph)
-    nx.set_node_attributes(di_graph, name='size', values=size)
+
+    idc = nx.in_degree_centrality(di_graph)
+    nx.set_node_attributes(di_graph, name='idc', values=idc)
 
     odc = nx.out_degree_centrality(di_graph)
     nx.set_node_attributes(di_graph, name='odc', values=odc)
 
     # eigen-vector centrality
     edc = nx.eigenvector_centrality(di_graph)
-    nx.set_node_attributes(di_graph, name='odc', values=edc)
+    nx.set_node_attributes(di_graph, name='edc', values=edc)
     """
     Definition: Like degree centrality, EigenCentrality measures a node’s influence based on the number of links it 
     has to other nodes within the network. EigenCentrality then goes a step further by also taking into account how 
@@ -246,6 +225,5 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
         print('Please enter a valid output file format: JSON or GEXF')
 
 
-# analyze_igraph('TheDataFox.gml', 'demo', outputfile_format='json')
 analyze_convert('TheDataFox.gml', 'TheDataFox', outputfile_format='json')
 
