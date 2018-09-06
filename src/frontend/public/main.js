@@ -4,6 +4,7 @@ var config ={apiKey: "insertkeyhere",
     projectId: "twitteranalyzer-f4bb9",
     storageBucket: "twitteranalyzer-f4bb9.appspot.com",
     messagingSenderId: "129326134313"};
+
 firebase.initializeApp(config);
 
 const database = firebase.database();

@@ -1,32 +1,4 @@
-"""
-Analysis
-The statistics I focused on are as follows:
-
-Degree Centrality focuses on individual nodes, counting the number of edges a node has. Nodes with high degree usually
-play an important role in a network. The degree centrality for a node is the fraction of nodes it is connected to.
-
-The degree centrality values are normalized by dividing by the maximum possible degree in a simple graph n-1 where n is
-the number of nodes in G.
-Eigenvector Centrality measures the importance of a node proportional to the sum of the centrality scores of its
-neighbors. In other words, a node is important if it is connected to other important nodes.
-
-Calculate the eigendecomposition of the pairwise agjacency matrix of the graph.
-Select the eigenvector associated with the largest eigenvalue.
-Element i in the eigenvector gives the centrality of the i-th node.
-Note: The eigenvector calculation is done by the power iteration method and has no guarantee of convergence.
-Louvain Method of community detection. The method is a greedy optimization method that attempts to
-optimize the "modularity" of a partition of the network. The optimization is performed in two steps.
-
-First, the method looks for "small" communities by optimizing modularity locally.
-Second, it aggregates nodes belonging to the same community and builds a new network whose nodes are the communities.
-These steps are repeated iteratively until a maximum of modularity is attained and a hierarchy of communities is
-produced.
-Note: Although the exact computational complexity of the method is not known, the method seems to run in time O(n log n)
- with most of the computational effort spent on the optimization at the first level. Exact modularity optimization
- is known to be NP-hard.
-
-"""
-
+# collect tweets, handles and followers main script
 
 import argparse
 import urlparse
@@ -48,21 +20,22 @@ import codecs
 import errno
 import socket
 
-__version__ = '1.13'
+__version__ = '1.14'
 ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
-FDAT_DIR = 'fdat'
-IMG_DIR = 'img'
+DAT_PATH = '../../data/raw'
+FDAT_DIR = '../../data/interim/fdat'
+#IMG_DIR = 'img'
 TT_EXT = '.dat'
 FDAT_EXT = '.f'
 FAV_EXT = '.fav'
 TWT_EXT = '.twt'
 FMAX = 5000
-EDG_EXT = '.gml'  # Graph Modeling Language
+EDG_EXT = '.gml'
 WAIT_CODES = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
 SKIP_CODES = (401, 403, 404)
-SHAPES = ['box', 'circle', 'rect', 'triangle-up', 'diamond', 'triangle-down']
+#SHAPES = ['box', 'circle', 'rect', 'triangle-up', 'diamond', 'triangle-down']
 
 from collections import namedtuple
 
@@ -355,7 +328,7 @@ def init(args):
                     continue
                 else:
                     raise
-    filename = args.screen_name + TT_EXT
+    filename = DAT_PATH + '/' + args.screen_name + TT_EXT
     if not args.force and os.path.isfile(filename):
         # ignore previously processed data found in file
         f = open(filename, 'r+')
@@ -432,66 +405,66 @@ def init(args):
                     ',' + str(data['statuses_count']) + \
                     ',' + data['created_at'] + \
                     ',' + url.encode('ascii', 'replace') + \
-                    ',' + avatar + \
+                  #  ',' + avatar + \
                     ',' + location.encode('ascii', 'replace') + '\n')
 
 
 # used for igraph visualization
-def _palette(rng):
-    import colorsys
-    HSV_tuples = [(t * 1.0 / rng, 0.75, 1.0) for t in range(rng)]
-    return map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
+# def _palette(rng):
+#     import colorsys
+#     HSV_tuples = [(t * 1.0 / rng, 0.75, 1.0) for t in range(rng)]
+#     return map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
 
 
 # requires igraph
-def _draw(args):
-    import igraph
-    g = igraph.load('_'.join(args.screen_name) + EDG_EXT)
-    sys.stdout.write('%s Handles\n%s Follow Relationships\n' % (g.vcount(), g.ecount()))
-    sys.stdout.write('Avg Shortest Path = %.6f\n' % g.average_path_length())
-    sys.stdout.write('In-Degree Distribution mean = %.6f, sd = %.6f\n' % (
-        g.degree_distribution(mode=igraph.IN).mean, g.degree_distribution(mode=igraph.IN).sd))
-    sys.stdout.write('Clustering Coefficient = %.6f\n' % g.transitivity_undirected())
-    sys.stdout.write('Degree Assortativity = %.6f\n' % g.assortativity_degree())
-    width = height = int(750 + g.vcount() * 4.73 - g.vcount() ** 2 * 1.55e-3)
-    comp = g.clusters(igraph.STRONG if args.strong else igraph.WEAK)
-    gc = comp.giant()
-    if len(args.screen_name) > 1 and not args.strong:
-        RGB_dict = dict(zip(SHAPES, _palette(len(SHAPES))))
-        for v in g.vs:
-            v['color'] = RGB_dict[v['shape']]
-    else:
-        for v in g.vs:
-            v['color'] = (.8, .8, .8)
-        if gc.ecount() > 0:
-            gc_size = gc.vcount()
-            sys.stdout.write('Fraction Handles in Giant Component = %.2f%%\n' % (100.0 * gc_size / g.vcount()))
-            sys.stdout.write('GC Diameter %i (unweighted)\n' % gc.diameter())
-            gc_vert = comp[comp.sizes().index(gc_size)]
-            cim = gc.community_infomap(edge_weights=gc.es['weight'],
-                                       vertex_weights=gc.vs['lfr'])
-            RGB_tuples = _palette(max(cim.membership) + 1)
-            for v in g.vs:
-                gc_v = gc.vs.select(id_eq=v['id'])
-                if len(gc_v) > 0:
-                    v['color'] = RGB_tuples[cim.membership[gc_v[0].index]]
-            g.es['color'] = [g.vs['color'][e.target] for e in g.es]
-            E = max(g.es['weight'])
-            g.es['width'] = [(not args.transparent) * max(1, 10 * e['weight'] / E) for e in g.es]
-            g.es['arrow_size'] = [max(1, 3 * e['weight'] / E) for e in g.es]
-    ID = max(g.vs.indegree()) or 1
-    g.vs['label_size'] = [max(12, 36 * v.indegree() / ID) for v in g.vs]
-    for v in g.vs:
-        if v['type'] == 'mention':
-            v['label_color'] = 'blue'
-        filename = '%s/%s%s' % (FDAT_DIR, v['user_id'], FDAT_EXT)
-        if not os.path.isfile(filename):
-            v['color'] = (0, 0, 0)
-    filename = '_'.join(args.screen_name) + \
-               ('_s' if args.strong else '_w') + \
-               ('_t' if args.transparent else '') + \
-               '.' + args.format
-    igraph.plot(g, filename, layout=g.layout(args.layout), bbox=(width, height), margin=50)
+# def _draw(args):
+#     import igraph
+#     g = igraph.load('_'.join(args.screen_name) + EDG_EXT)
+#     sys.stdout.write('%s Handles\n%s Follow Relationships\n' % (g.vcount(), g.ecount()))
+#     sys.stdout.write('Avg Shortest Path = %.6f\n' % g.average_path_length())
+#     sys.stdout.write('In-Degree Distribution mean = %.6f, sd = %.6f\n' % (
+#         g.degree_distribution(mode=igraph.IN).mean, g.degree_distribution(mode=igraph.IN).sd))
+#     sys.stdout.write('Clustering Coefficient = %.6f\n' % g.transitivity_undirected())
+#     sys.stdout.write('Degree Assortativity = %.6f\n' % g.assortativity_degree())
+#     width = height = int(750 + g.vcount() * 4.73 - g.vcount() ** 2 * 1.55e-3)
+#     comp = g.clusters(igraph.STRONG if args.strong else igraph.WEAK)
+#     gc = comp.giant()
+#     if len(args.screen_name) > 1 and not args.strong:
+#         RGB_dict = dict(zip(SHAPES, _palette(len(SHAPES))))
+#         for v in g.vs:
+#             v['color'] = RGB_dict[v['shape']]
+#     else:
+#         for v in g.vs:
+#             v['color'] = (.8, .8, .8)
+#         if gc.ecount() > 0:
+#             gc_size = gc.vcount()
+#             sys.stdout.write('Fraction Handles in Giant Component = %.2f%%\n' % (100.0 * gc_size / g.vcount()))
+#             sys.stdout.write('GC Diameter %i (unweighted)\n' % gc.diameter())
+#             gc_vert = comp[comp.sizes().index(gc_size)]
+#             cim = gc.community_infomap(edge_weights=gc.es['weight'],
+#                                        vertex_weights=gc.vs['lfr'])
+#             RGB_tuples = _palette(max(cim.membership) + 1)
+#             for v in g.vs:
+#                 gc_v = gc.vs.select(id_eq=v['id'])
+#                 if len(gc_v) > 0:
+#                     v['color'] = RGB_tuples[cim.membership[gc_v[0].index]]
+#             g.es['color'] = [g.vs['color'][e.target] for e in g.es]
+#             E = max(g.es['weight'])
+#             g.es['width'] = [(not args.transparent) * max(1, 10 * e['weight'] / E) for e in g.es]
+#             g.es['arrow_size'] = [max(1, 3 * e['weight'] / E) for e in g.es]
+#     ID = max(g.vs.indegree()) or 1
+#     g.vs['label_size'] = [max(12, 36 * v.indegree() / ID) for v in g.vs]
+#     for v in g.vs:
+#         if v['type'] == 'mention':
+#             v['label_color'] = 'blue'
+#         filename = '%s/%s%s' % (FDAT_DIR, v['user_id'], FDAT_EXT)
+#         if not os.path.isfile(filename):
+#             v['color'] = (0, 0, 0)
+#     filename = '_'.join(args.screen_name) + \
+#                ('_s' if args.strong else '_w') + \
+#                ('_t' if args.transparent else '') + \
+#                '.' + args.format
+#     igraph.plot(g, filename, layout=g.layout(args.layout), bbox=(width, height), margin=50)
 
 
 def _days(created):
@@ -615,7 +588,7 @@ def edgelist(args):
 
 # retrieve friends
 def fetch(args):
-    dat = [item for item in csv.reader(_skip_hash(open(args.screen_name + TT_EXT)))]
+    dat = [item for item in csv.reader(_skip_hash(open(DAT_PATH + '/' + args.screen_name + TT_EXT)))]
     if not os.path.exists(FDAT_DIR):
         os.makedirs(FDAT_DIR)
     cursor = res = None
@@ -855,7 +828,6 @@ class QuoteAction(argparse.Action):
             setattr(namespace, self.dest, map(lambda v: urllib.quote(v), values))
         else:
             setattr(namespace, self.dest, urllib.quote(values))
-
 
 def main():
     parser = argparse.ArgumentParser(description='Twitter Collection Tool')

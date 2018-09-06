@@ -4,7 +4,7 @@ setup(
     name='src',
     packages=find_packages(),
     version='0.0.1',
-    description='sentiment analysis',
+    description='sentiment-influencer-app',
     author='LJJ',
     license='MIT',
 )

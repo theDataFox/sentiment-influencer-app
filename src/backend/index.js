@@ -2,7 +2,6 @@
 // TODO: Remove bigquery
 // TODO: install dotenv
 // TODO: assign env variables from .env
-// TODO: Remove bigquery
 'use strict';
 
 const request = require('request');
@@ -67,7 +66,6 @@ function incrementCount(ref, child, valToIncrement) {
     return data;
   });
 }
-
 
 tweetRef.on('value', function (snap) {
     if (snap.exists()) {

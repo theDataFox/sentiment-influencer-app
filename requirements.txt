@@ -1,3 +1,5 @@
+numpy
+matplotlib
 networkx
 # local package
 -e .
