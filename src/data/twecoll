@@ -143,10 +143,11 @@ class OAuthHandler(urllib2.BaseHandler):
 
 
 def _replace_opener():
-    filename = os.path.expanduser('~') + '/.' + os.path.basename(sys.argv[0])
+    filename = '../..' + '/.' + os.path.basename(sys.argv[0])
     if os.path.isfile(filename):
         f = open(filename, 'r')
         lines = f.readlines()
+        print lines
         key = lines[0].strip()
         secret = lines[1].strip()
     else:
