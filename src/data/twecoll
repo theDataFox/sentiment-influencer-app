@@ -605,6 +605,10 @@ def fetch(args):
             try:
                 bag = _ids('friends', 'user_id=' + str(item[0]), cursor, res)
                 cursor = res = None
+                with open(filename, 'w') as f:
+                    for item in bag:
+                        f.write(str(item) + '\n')
+                    f.close()
             except (CursorError, socket.error) as e:
                 if hasattr(e, 'code') and e.code in SKIP_CODES:
                     sys.stdout.write('HTTPError %s with %s. Skipping...\n' % \
@@ -635,10 +639,10 @@ def fetch(args):
                 else:
                     sys.stderr.write('\n')
                     raise
-            f = open(filename, 'w')
-            for item in bag:
-                f.write(str(item) + '\n')
-            f.close()
+            # f = open(filename, 'w')
+            # for item in bag:
+            #     f.write(str(item) + '\n')
+            # f.close()
 
 
 def _destroy(screen_name):
