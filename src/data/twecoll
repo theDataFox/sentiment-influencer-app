@@ -1,3 +1,4 @@
+#! /usr/bin/python
 # collect tweets, handles and followers main script
 
 import argparse
