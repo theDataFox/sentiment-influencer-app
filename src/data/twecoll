@@ -487,7 +487,7 @@ def edgelist(args):
     dat = {}
     i = 0
     for sn in args.screen_name:
-        for item in csv.reader(_skip_hash(open(sn + TT_EXT))):
+        for item in csv.reader(_skip_hash(open(DAT_PATH + '/' + sn + TT_EXT))):
             if not dat.has_key(item[0]):
                 dat[item[0]] = [i] + item[1:11] + [sn]
                 i = i + 1
@@ -506,7 +506,7 @@ def edgelist(args):
                 # col 11: handle arg
     id0 = {user_id: val[0] for user_id, val in dat.iteritems() if val[1] in args.screen_name}
     e = open('_'.join(args.screen_name) + EDG_EXT, 'w')
-    e.write('graph [\n  directed 1\n') # TODO: remove this for automation
+    e.write('graph [\n  directed 1\n')
     j = 0
     for user_id, val in dat.iteritems():
         if not args.ego and val[1] in args.screen_name:
