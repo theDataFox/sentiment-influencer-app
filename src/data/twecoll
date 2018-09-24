@@ -484,6 +484,7 @@ def _skip_hash(iterable):
 
 # generate GML file readable by Gephi or igraph
 def edgelist(args):
+    csv.field_size_limit(sys.maxsize)    
     dat = {}
     i = 0
     for sn in args.screen_name:
