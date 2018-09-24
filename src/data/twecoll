@@ -694,7 +694,7 @@ def likes(args):
         _destroy(args.screen_name)
     else:
         filename = args.screen_name + FAV_EXT
-        f = codecs.open(filename, 'w', encoding='utf-8')
+        f = codecs.open(DAT_PATH + '/' + filename, 'w', encoding='utf-8')
         max_id = None
         sys.stderr.write('Fetching likes')
         sys.stderr.flush()
@@ -748,7 +748,7 @@ def likes(args):
 
 # retrieve tweets
 def tweets(args):
-    f = codecs.open(args.screen_name + TWT_EXT, 'w', encoding='utf-8')
+    f = codecs.open(DAT_PATH + '/' + args.screen_name + TWT_EXT, 'w', encoding='utf-8')
     max_id = None
     sys.stderr.write('Fetching tweets')
     sys.stderr.flush()
