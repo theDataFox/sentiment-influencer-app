@@ -14,19 +14,21 @@ import os
 import time
 import datetime
 import random
-import math
 import csv
 import re
 import codecs
 import errno
 import socket
 
+from collections import namedtuple
+
 __version__ = '1.14'
 ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
+GML_PATH = '../../data/processed'
 DAT_PATH = '../../data/raw'
 FDAT_DIR = '../../data/interim/fdat'
-#IMG_DIR = 'img'
+# IMG_DIR = 'img'
 TT_EXT = '.dat'
 FDAT_EXT = '.f'
 FAV_EXT = '.fav'
@@ -36,9 +38,7 @@ EDG_EXT = '.gml'
 WAIT_CODES = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
 SKIP_CODES = (401, 403, 404)
-#SHAPES = ['box', 'circle', 'rect', 'triangle-up', 'diamond', 'triangle-down']
-
-from collections import namedtuple
+SHAPES = ['box', 'circle', 'rect', 'triangle-up', 'diamond', 'triangle-down']
 
 Consumer = namedtuple('Consumer', 'key secret')
 Token = namedtuple('Token', 'key secret')
@@ -68,10 +68,10 @@ def _parse_uri(req):
 
 
 class Request(urllib2.Request):
-    def __init__(self, url, \
-                 data=None, headers={}, origin_req_host=None, unverifiable=False, \
+    def __init__(self, url,
+                 data=None, headers={}, origin_req_host=None, unverifiable=False,
                  method=None, oauth_params={}):
-        urllib2.Request.__init__( \
+        urllib2.Request.__init__(
             self, url, data, headers, origin_req_host, unverifiable)
         self.method = method
         self.oauth_params = oauth_params
@@ -143,6 +143,7 @@ class OAuthHandler(urllib2.BaseHandler):
         return self.http_request(req)
 
 
+# .twecoll key located in root dir
 def _replace_opener():
     filename = '../..' + '/.' + os.path.basename(sys.argv[0])
     if os.path.isfile(filename):
@@ -209,7 +210,6 @@ def _replace_opener():
 #     file.write(data)
 #     file.close()
 #     return filename
-
 
 def resolve(args):
     for sn in args.screen_name:
@@ -407,66 +407,8 @@ def init(args):
                     ',' + str(data['statuses_count']) + \
                     ',' + data['created_at'] + \
                     ',' + url.encode('ascii', 'replace') + \
-                  #  ',' + avatar + \
+                    #  ',' + avatar + \
                     ',' + location.encode('ascii', 'replace') + '\n')
-
-
-# used for igraph visualization
-# def _palette(rng):
-#     import colorsys
-#     HSV_tuples = [(t * 1.0 / rng, 0.75, 1.0) for t in range(rng)]
-#     return map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
-
-
-# requires igraph
-# def _draw(args):
-#     import igraph
-#     g = igraph.load('_'.join(args.screen_name) + EDG_EXT)
-#     sys.stdout.write('%s Handles\n%s Follow Relationships\n' % (g.vcount(), g.ecount()))
-#     sys.stdout.write('Avg Shortest Path = %.6f\n' % g.average_path_length())
-#     sys.stdout.write('In-Degree Distribution mean = %.6f, sd = %.6f\n' % (
-#         g.degree_distribution(mode=igraph.IN).mean, g.degree_distribution(mode=igraph.IN).sd))
-#     sys.stdout.write('Clustering Coefficient = %.6f\n' % g.transitivity_undirected())
-#     sys.stdout.write('Degree Assortativity = %.6f\n' % g.assortativity_degree())
-#     width = height = int(750 + g.vcount() * 4.73 - g.vcount() ** 2 * 1.55e-3)
-#     comp = g.clusters(igraph.STRONG if args.strong else igraph.WEAK)
-#     gc = comp.giant()
-#     if len(args.screen_name) > 1 and not args.strong:
-#         RGB_dict = dict(zip(SHAPES, _palette(len(SHAPES))))
-#         for v in g.vs:
-#             v['color'] = RGB_dict[v['shape']]
-#     else:
-#         for v in g.vs:
-#             v['color'] = (.8, .8, .8)
-#         if gc.ecount() > 0:
-#             gc_size = gc.vcount()
-#             sys.stdout.write('Fraction Handles in Giant Component = %.2f%%\n' % (100.0 * gc_size / g.vcount()))
-#             sys.stdout.write('GC Diameter %i (unweighted)\n' % gc.diameter())
-#             gc_vert = comp[comp.sizes().index(gc_size)]
-#             cim = gc.community_infomap(edge_weights=gc.es['weight'],
-#                                        vertex_weights=gc.vs['lfr'])
-#             RGB_tuples = _palette(max(cim.membership) + 1)
-#             for v in g.vs:
-#                 gc_v = gc.vs.select(id_eq=v['id'])
-#                 if len(gc_v) > 0:
-#                     v['color'] = RGB_tuples[cim.membership[gc_v[0].index]]
-#             g.es['color'] = [g.vs['color'][e.target] for e in g.es]
-#             E = max(g.es['weight'])
-#             g.es['width'] = [(not args.transparent) * max(1, 10 * e['weight'] / E) for e in g.es]
-#             g.es['arrow_size'] = [max(1, 3 * e['weight'] / E) for e in g.es]
-#     ID = max(g.vs.indegree()) or 1
-#     g.vs['label_size'] = [max(12, 36 * v.indegree() / ID) for v in g.vs]
-#     for v in g.vs:
-#         if v['type'] == 'mention':
-#             v['label_color'] = 'blue'
-#         filename = '%s/%s%s' % (FDAT_DIR, v['user_id'], FDAT_EXT)
-#         if not os.path.isfile(filename):
-#             v['color'] = (0, 0, 0)
-#     filename = '_'.join(args.screen_name) + \
-#                ('_s' if args.strong else '_w') + \
-#                ('_t' if args.transparent else '') + \
-#                '.' + args.format
-#     igraph.plot(g, filename, layout=g.layout(args.layout), bbox=(width, height), margin=50)
 
 
 def _days(created):
@@ -484,7 +426,7 @@ def _skip_hash(iterable):
 
 # generate GML file readable by Gephi or igraph
 def edgelist(args):
-    csv.field_size_limit(sys.maxsize)    
+    csv.field_size_limit(2147483647)
     dat = {}
     i = 0
     for sn in args.screen_name:
@@ -502,11 +444,10 @@ def edgelist(args):
                 # col 6: tweets
                 # col 7: date joined
                 # col 8: url
-                # col 9: avatar
                 # col 10: location
                 # col 11: handle arg
     id0 = {user_id: val[0] for user_id, val in dat.iteritems() if val[1] in args.screen_name}
-    e = open('_'.join(args.screen_name) + EDG_EXT, 'w')
+    e = open(GML_PATH + '/' + '_'.join(args.screen_name) + EDG_EXT, 'w')
     e.write('graph [\n  directed 1\n')
     j = 0
     for user_id, val in dat.iteritems():
@@ -519,14 +460,13 @@ def edgelist(args):
     user_id "%s"
     file "%s.dat"
     label "%s"
-    image "%s"
     type "%s"
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (val[0], user_id, val[11], val[1], os.path.abspath(val[9]), val[2], val[6], val[3], val[4], val[5]))
-        ffr = (float(val[4]) / float(val[3])) if float(val[3]) > 0 else 0 # friends to followers ratio
-        lfr = (10 * float(val[5]) / float(val[4])) if float(val[4]) > 0 else 0 # listed to followers ratio
+    listed %s''' % (val[0], user_id, val[10], val[1], val[2], val[6], val[3], val[4], val[5]))
+        ffr = (float(val[4]) / float(val[3])) if float(val[3]) > 0 else 0  # friends to followers ratio
+        lfr = (10 * float(val[5]) / float(val[4])) if float(val[4]) > 0 else 0  # listed to followers ratio
         e.write('\n    ffr %.4f' % ffr)
         e.write('\n    lfr %.4f' % lfr)
         if len(args.screen_name) > 1:
@@ -580,18 +520,18 @@ def edgelist(args):
     e.write(']\n')
     e.close()
     sys.stdout.write('GML file created.\n')
-    try:
-        if len(args.screen_name) > 1:
-            sys.stdout.write('Shapes mapping: %s -> %s\n' % (args.screen_name, SHAPES[0:len(args.screen_name)]))
-        _draw(args)
-    except:
-        sys.stderr.write('Visualization skipped.\n')
-        raise
+    # try:
+    #     if len(args.screen_name) > 1:
+    #         sys.stdout.write('Shapes mapping: %s -> %s\n' % (args.screen_name, SHAPES[0:len(args.screen_name)]))
+    #     _draw(args)
+    # except:
+    #     sys.stderr.write('Visualization skipped.\n')
+    #     raise
 
 
 # retrieve friends
 def fetch(args):
-    csv.field_size_limit(sys.maxsize)
+    # csv.field_size_limit(sys.maxsize)
     dat = [item for item in csv.reader(_skip_hash(open(DAT_PATH + '/' + args.screen_name + TT_EXT)))]
     if not os.path.exists(FDAT_DIR):
         os.makedirs(FDAT_DIR)
@@ -837,12 +777,12 @@ class QuoteAction(argparse.Action):
         else:
             setattr(namespace, self.dest, urllib.quote(values))
 
+
 def main():
     parser = argparse.ArgumentParser(description='Twitter Collection Tool')
     sp = parser.add_subparsers(dest='cmd', title='sub-commands')
 
-    sp_resolve = sp.add_parser('resolve', \
-                               help='retrieve user_id for screen_name or vice versa')
+    sp_resolve = sp.add_parser('resolve', help='retrieve user_id for screen_name or vice versa')
     sp_resolve.add_argument(dest='screen_name', nargs='+', action=QuoteAction, \
                             help='Twitter screen name')
     sp_resolve.set_defaults(func=resolve)

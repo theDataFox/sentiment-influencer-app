@@ -11,7 +11,6 @@ import re
 
 
 def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
-
     """
     Converts GML file to json or gexf while adding statistics and community information,
     node and edge coloring and alpha, node size and edge weight
@@ -21,7 +20,7 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
     print('Starting conversion to JSON\n')
     print(outputfile_format.upper(), 'output file selected')
     print('\nReading GML file:', gmlfile)
-    di_graph = nx.read_gml('../../data/interim/' + gmlfile, label='id')
+    di_graph = nx.read_gml('../../data/processed/' + gmlfile, label='id')
 
     # re-assign node id as attr
     node_id_dict = {}
@@ -116,13 +115,13 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
         print('\nExporting ' + outputfile + '.json')
 
         # create a dictionary in a node-link format that is suitable for JSON serialization
-        with open('../../data/processed/' + outputfile + '.json', 'w') as outfile1:
-            outfile1.write(json.dumps(nx.readwrite.json_graph.
-                                      node_link_data(G=di_graph,
-                                                     attrs={'link': 'edges',
-                                                            'name': 'id',
-                                                            'source': 'source',
-                                                            'target': 'target'})))
+        with open('../../data/processed/' + outputfile + '.json', 'w') as outfile:
+            outfile.write(json.dumps(nx.readwrite.json_graph.
+                                     node_link_data(G=di_graph,
+                                                    attrs={'link': 'edges',
+                                                           'name': 'id',
+                                                           'source': 'source',
+                                                           'target': 'target'})))
         print('Complete!')
 
     elif outputfile_format.upper() == 'GEXF':
@@ -134,5 +133,4 @@ def analyze_convert(gmlfile, outputfile, outputfile_format='json'):
         print('Please enter a valid output file format: JSON or GEXF')
 
 
-analyze_convert('TheDataFox.gml', 'TheDataFox', outputfile_format='json')
-
+analyze_convert('MartinSLewis.gml', 'MartinSLewis', outputfile_format='json')
