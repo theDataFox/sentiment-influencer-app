@@ -19,9 +19,11 @@ import re
 import codecs
 import errno
 import socket
+from daemonize import Daemonize
 
 from collections import namedtuple
 
+pid = 'twecoll.pid'
 __version__ = '1.14'
 ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
@@ -890,3 +892,6 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
+daemon = Daemonize(app='twecoll', pid=pid, action=main)
+daemon.start()
