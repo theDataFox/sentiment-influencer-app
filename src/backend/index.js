@@ -1,7 +1,5 @@
 // main node server for running connection to firebase and big query
-// TODO: Remove bigquery
-// TODO: install dotenv
-// TODO: assign env variables from .env
+
 'use strict';
 
 const request = require('request');

@@ -19,11 +19,9 @@ import re
 import codecs
 import errno
 import socket
-from daemonize import Daemonize
 
 from collections import namedtuple
 
-pid = 'twecoll.pid'
 __version__ = '1.14'
 ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
@@ -321,8 +319,7 @@ def init(args):
                 break
             except CursorError, e:
                 if e.code in WAIT_CODES:
-                    waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,
-                                                                                                                   30)
+                    waiting_time = 900
                     sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume...' % \
                                      (e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60))
                     time.sleep(waiting_time)
@@ -428,7 +425,7 @@ def _skip_hash(iterable):
 
 # generate GML file readable by Gephi or igraph
 def edgelist(args):
-    csv.field_size_limit(2147483647)
+    csv.field_size_limit(sys.maxsize)
     dat = {}
     i = 0
     for sn in args.screen_name:
@@ -533,7 +530,7 @@ def edgelist(args):
 
 # retrieve friends
 def fetch(args):
-    # csv.field_size_limit(sys.maxsize)
+    csv.field_size_limit(sys.maxsize)
     dat = [item for item in csv.reader(_skip_hash(open(DAT_PATH + '/' + args.screen_name + TT_EXT)))]
     if not os.path.exists(FDAT_DIR):
         os.makedirs(FDAT_DIR)
@@ -892,6 +889,3 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
-
-daemon = Daemonize(app='twecoll', pid=pid, action=main)
-daemon.start()
