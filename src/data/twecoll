@@ -373,7 +373,7 @@ def init(args):
                 continue
             elif hasattr(e, 'code') and e.code in WAIT_CODES:
                 bag += next_items
-                waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10, 30)
+                waiting_time = 900
                 sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
                     e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(bag)))
                 sys.stderr.flush()
@@ -568,8 +568,7 @@ def fetch(args):
                     sys.stderr.write('\n')
                     continue
                 elif hasattr(e, 'code') and e.code in WAIT_CODES:
-                    waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,
-                                                                                                                   30)
+                    waiting_time = 900
                     sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
                         e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
                     sys.stderr.flush()
