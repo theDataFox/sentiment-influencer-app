@@ -19,11 +19,9 @@ import re
 import codecs
 import errno
 import socket
-from daemonize import Daemonize
 
 from collections import namedtuple
 
-pid = 'twecoll.pid'
 __version__ = '1.14'
 ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
@@ -321,8 +319,7 @@ def init(args):
                 break
             except CursorError, e:
                 if e.code in WAIT_CODES:
-                    waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,
-                                                                                                                   30)
+                    waiting_time = 900
                     sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume...' % \
                                      (e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60))
                     time.sleep(waiting_time)
@@ -376,7 +373,7 @@ def init(args):
                 continue
             elif hasattr(e, 'code') and e.code in WAIT_CODES:
                 bag += next_items
-                waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10, 30)
+                waiting_time = 900
                 sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
                     e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(bag)))
                 sys.stderr.flush()
@@ -571,8 +568,7 @@ def fetch(args):
                     sys.stderr.write('\n')
                     continue
                 elif hasattr(e, 'code') and e.code in WAIT_CODES:
-                    waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,
-                                                                                                                   30)
+                    waiting_time = 900
                     sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
                         e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
                     sys.stderr.flush()
@@ -892,6 +888,3 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
-
-daemon = Daemonize(app='twecoll', pid=pid, action=main)
-daemon.start()
