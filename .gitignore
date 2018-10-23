@@ -89,3 +89,4 @@ local.json
 .twecoll
 .ppk
 node_modules/node_modules/
+*.ppk
