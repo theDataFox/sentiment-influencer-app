@@ -425,7 +425,10 @@ def _skip_hash(iterable):
 
 # generate GML file readable by Gephi or igraph
 def edgelist(args):
-    csv.field_size_limit(sys.maxsize)
+    if os.name == 'nt':
+        csv.field_size_limit(2147483647)
+    else:
+        csv.field_size_limit(sys.maxsize)
     dat = {}
     i = 0
     for sn in args.screen_name:
@@ -530,10 +533,13 @@ def edgelist(args):
 
 # retrieve friends
 def fetch(args):
-    csv.field_size_limit(sys.maxsize)
+    if os.name == 'nt':
+        csv.field_size_limit(2147483647)
+    else:
+        csv.field_size_limit(sys.maxsize)
     dat = [item for item in csv.reader(_skip_hash(open(DAT_PATH + '/' + args.screen_name + TT_EXT)))]
-    if not os.path.exists(FDAT_DIR):
-        os.makedirs(FDAT_DIR)
+    if not os.path.exists(FDAT_DIR + args.screen_name):
+        os.makedirs(FDAT_DIR + args.screen_name)
     cursor = res = None
     while len(dat) > 0:
         if cursor is None:
@@ -541,7 +547,7 @@ def fetch(args):
         if int(item[3]) > args.count:
             sys.stdout.write('Skipping %s (%s %s)\n' % (item[1], item[3], 'friends'))
             continue
-        filename = FDAT_DIR + '/' + str(item[0]) + FDAT_EXT
+        filename = FDAT_DIR + args.screen_name + '/' + str(item[0]) + FDAT_EXT
         if args.force or not os.path.isfile(filename):
             sys.stdout.write('Processing %s...\n' % item[0])
             try:
