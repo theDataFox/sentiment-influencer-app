@@ -84,7 +84,7 @@ target/
 # images
 .jpg
 
-data/interim/fdat2
+data/interim/
 keyfile.json
 local.json
 .twecoll
