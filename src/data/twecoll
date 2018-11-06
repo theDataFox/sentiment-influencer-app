@@ -27,14 +27,13 @@ ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 GML_PATH = '../../data/processed'
 DAT_PATH = '../../data/raw'
-FDAT_DIR = '../../data/interim/fdat_GourmetSociety'
+FDAT_DIR = '../../data/interim/fdat_'
 # IMG_DIR = 'img'
 TT_EXT = '.dat'
 FDAT_EXT = '.f'
 FAV_EXT = '.fav'
 TWT_EXT = '.twt'
 FMAX = 7000
-EDG_EXT = '.gml'
 WAIT_CODES = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
 SKIP_CODES = (401, 403, 404)
@@ -455,7 +454,7 @@ def edgelist(args):
     for user_id, val in dat.iteritems():
         if not args.ego and val[1] in args.screen_name:
             continue
-        if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(user_id) + FDAT_EXT):
+        if not args.missing and not os.path.isfile(FDAT_DIR + args.screen_name + '/' + str(user_id) + FDAT_EXT):
             continue
         e.write('''  node [
     id %s
@@ -485,7 +484,7 @@ def edgelist(args):
 
         if id1 in id0.keys():
             continue
-        if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(id1) + FDAT_EXT):
+        if not args.missing and not os.path.isfile(FDAT_DIR + args.screen_name + '/' + str(id1) + FDAT_EXT):
             continue
         if args.ego:
             for idzero in id0.values():
@@ -495,10 +494,10 @@ def edgelist(args):
     id %s            
     source %s
     target %s
-    size %s
+    weight %s
   ]
 ''' % (j, idzero, val[0], float(val[6]) / d if float(d) > 0 else 0))
-        filename = FDAT_DIR + '/' + str(id1) + FDAT_EXT
+        filename = FDAT_DIR + args.screen_name + '/' + str(id1) + FDAT_EXT
         if os.path.isfile(filename):
             fdat = open(filename).readlines()
             for line in fdat:
@@ -506,7 +505,7 @@ def edgelist(args):
                 if dat.has_key(id2):
                     if not args.ego and id2 in id0.keys():
                         continue
-                    if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(id2) + FDAT_EXT):
+                    if not args.missing and not os.path.isfile(FDAT_DIR + args.screen_name + '/' + str(id2) + FDAT_EXT):
                         continue
                     d = _days(dat[id2][7])
                     j += 1
@@ -514,7 +513,7 @@ def edgelist(args):
     id %s    
     source %s
     target %s
-    size %s
+    weight %s
   ]
 ''' % (j, val[0], dat[id2][0], float(dat[id2][6]) / d if float(d) > 0 else 0))
         else:
@@ -538,8 +537,8 @@ def fetch(args):
     else:
         csv.field_size_limit(sys.maxsize)
     dat = [item for item in csv.reader(_skip_hash(open(DAT_PATH + '/' + args.screen_name + TT_EXT)))]
-    if not os.path.exists(FDAT_DIR):
-        os.makedirs(FDAT_DIR)
+    if not os.path.exists(FDAT_DIR + args.screen_name):
+        os.makedirs(FDAT_DIR + args.screen_name)
     cursor = res = None
     while len(dat) > 0:
         if cursor is None:
@@ -547,7 +546,7 @@ def fetch(args):
         if int(item[3]) > args.count:
             sys.stdout.write('Skipping %s (%s %s)\n' % (item[1], item[3], 'friends'))
             continue
-        filename = FDAT_DIR + '/' + str(item[0]) + FDAT_EXT
+        filename = FDAT_DIR + args.screen_name + '/' + str(item[0]) + FDAT_EXT
         if args.force or not os.path.isfile(filename):
             sys.stdout.write('Processing %s...\n' % item[0])
             try:
