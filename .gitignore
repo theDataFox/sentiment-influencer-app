@@ -89,4 +89,4 @@ keyfile.json
 local.json
 .twecoll
 node_modules/
-*.ppk
+**/*.ppk
