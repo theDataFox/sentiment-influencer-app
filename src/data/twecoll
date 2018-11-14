@@ -33,6 +33,7 @@ TT_EXT = '.dat'
 FDAT_EXT = '.f'
 FAV_EXT = '.fav'
 TWT_EXT = '.twt'
+EDG_EXT = '.gml'
 FMAX = 7000
 WAIT_CODES = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
@@ -454,7 +455,7 @@ def edgelist(args):
     for user_id, val in dat.iteritems():
         if not args.ego and val[1] in args.screen_name:
             continue
-        if not args.missing and not os.path.isfile(FDAT_DIR + args.screen_name + '/' + str(user_id) + FDAT_EXT):
+        if not args.missing and not os.path.isfile(FDAT_DIR  + '/' + str(user_id) + FDAT_EXT):
             continue
         e.write('''  node [
     id %s
@@ -484,7 +485,7 @@ def edgelist(args):
 
         if id1 in id0.keys():
             continue
-        if not args.missing and not os.path.isfile(FDAT_DIR + args.screen_name + '/' + str(id1) + FDAT_EXT):
+        if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(id1) + FDAT_EXT):
             continue
         if args.ego:
             for idzero in id0.values():
@@ -497,7 +498,7 @@ def edgelist(args):
     weight %s
   ]
 ''' % (j, idzero, val[0], float(val[6]) / d if float(d) > 0 else 0))
-        filename = FDAT_DIR + args.screen_name + '/' + str(id1) + FDAT_EXT
+        filename = FDAT_DIR + '/' + str(id1) + FDAT_EXT
         if os.path.isfile(filename):
             fdat = open(filename).readlines()
             for line in fdat:
@@ -505,7 +506,7 @@ def edgelist(args):
                 if dat.has_key(id2):
                     if not args.ego and id2 in id0.keys():
                         continue
-                    if not args.missing and not os.path.isfile(FDAT_DIR + args.screen_name + '/' + str(id2) + FDAT_EXT):
+                    if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(id2) + FDAT_EXT):
                         continue
                     d = _days(dat[id2][7])
                     j += 1
