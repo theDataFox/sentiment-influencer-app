@@ -27,14 +27,14 @@ ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 GML_PATH = '../../data/processed'
 DAT_PATH = '../../data/raw'
-FDAT_DIR = '../../data/interim/fdat_GourmetSociety'
+FDAT_DIR = '../../data/interim/fdat_'
 # IMG_DIR = 'img'
 TT_EXT = '.dat'
 FDAT_EXT = '.f'
 FAV_EXT = '.fav'
 TWT_EXT = '.twt'
-FMAX = 7000
 EDG_EXT = '.gml'
+FMAX = 7000
 WAIT_CODES = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
 SKIP_CODES = (401, 403, 404)
@@ -455,7 +455,7 @@ def edgelist(args):
     for user_id, val in dat.iteritems():
         if not args.ego and val[1] in args.screen_name:
             continue
-        if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(user_id) + FDAT_EXT):
+        if not args.missing and not os.path.isfile(FDAT_DIR  + '/' + str(user_id) + FDAT_EXT):
             continue
         e.write('''  node [
     id %s
