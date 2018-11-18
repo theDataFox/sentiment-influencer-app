@@ -27,7 +27,7 @@ ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 GML_PATH = '../../data/processed'
 DAT_PATH = '../../data/raw'
-FDAT_DIR = '../../data/interim/fdat_'
+FDAT_DIR = '../../data/interim/fdat_SquareMeal'  # input manually for edgelist
 # IMG_DIR = 'img'
 TT_EXT = '.dat'
 FDAT_EXT = '.f'
@@ -541,52 +541,54 @@ def fetch(args):
     if not os.path.exists(FDAT_DIR + args.screen_name):
         os.makedirs(FDAT_DIR + args.screen_name)
     cursor = res = None
-    while len(dat) > 0:
-        if cursor is None:
-            item = dat.pop()
-        if int(item[3]) > args.count:
-            sys.stdout.write('Skipping %s (%s %s)\n' % (item[1], item[3], 'friends'))
-            continue
-        filename = FDAT_DIR + args.screen_name + '/' + str(item[0]) + FDAT_EXT
-        if args.force or not os.path.isfile(filename):
-            sys.stdout.write('Processing %s...\n' % item[0])
-            try:
-                bag = _ids('friends', 'user_id=' + str(item[0]), cursor, res)
-                cursor = res = None
-                with open(filename, 'w') as f:
-                    for item in bag:
-                        f.write(str(item) + '\n')
-                    f.close()
-            except (CursorError, socket.error) as e:
-                if hasattr(e, 'code') and e.code in SKIP_CODES:
-                    sys.stdout.write('HTTPError %s with %s. Skipping...\n' % \
-                                     (e.code, item[0]))
-                    cursor = res = None
-                    continue
-                elif (hasattr(e, 'code') and e.code in RETRY_CODES) or \
-                        (hasattr(e, 'errno') and e.errno in (errno.ECONNRESET, errno.EAGAIN)):
-                    sys.stderr.write('HTTPError %s with %s. Deferred...' % \
-                                     (e.code, item[0]))
-                    sys.stderr.flush()
-                    dat.append(item)
-                    time.sleep(random.randint(10, 30))
-                    cursor = res = None
-                    sys.stderr.write('\n')
-                    continue
-                elif hasattr(e, 'code') and e.code in WAIT_CODES:
-                    waiting_time = 900
-                    sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
-                        e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
-                    sys.stderr.flush()
-                    time.sleep(waiting_time)
-                    cursor = e.cursor
-                    res = e.res
-                    sys.stderr.write('\n')
-                    continue
-                else:
-                    sys.stderr.write('\n')
-                    raise
-            # f = open(filename, 'w')
+    if not os.path.exists(FDAT_DIR + args.screen_name + item[0] + FDAT_EXT):
+        while len(dat) > 0:
+            if cursor is None:
+                item = dat.pop()
+
+            if int(item[3]) > args.count:
+                sys.stdout.write('Skipping %s (%s %s)\n' % (item[1], item[3], 'friends'))
+            else:
+                filename = FDAT_DIR + args.screen_name + '/' + str(item[0]) + FDAT_EXT
+                if args.force or not os.path.isfile(filename):
+                    sys.stdout.write('Processing %s...\n' % item[0])
+                    try:
+                        bag = _ids('friends', 'user_id=' + str(item[0]), cursor, res)
+                        cursor = res = None
+                        with open(filename, 'w') as f:
+                            for item in bag:
+                                f.write(str(item) + '\n')
+                            f.close()
+                    except (CursorError, socket.error) as e:
+                        if hasattr(e, 'code') and e.code in SKIP_CODES:
+                            sys.stdout.write('HTTPError %s with %s. Skipping...\n' % \
+                                             (e.code, item[0]))
+                            cursor = res = None
+                            continue
+                        elif (hasattr(e, 'code') and e.code in RETRY_CODES) or \
+                                (hasattr(e, 'errno') and e.errno in (errno.ECONNRESET, errno.EAGAIN)):
+                            sys.stderr.write('HTTPError %s with %s. Deferred...' % \
+                                             (e.code, item[0]))
+                            sys.stderr.flush()
+                            dat.append(item)
+                            time.sleep(random.randint(10, 30))
+                            cursor = res = None
+                            sys.stderr.write('\n')
+                            continue
+                        elif hasattr(e, 'code') and e.code in WAIT_CODES:
+                            waiting_time = 900
+                            sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
+                                e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
+                            sys.stderr.flush()
+                            time.sleep(waiting_time)
+                            cursor = e.cursor
+                            res = e.res
+                            sys.stderr.write('\n')
+                            continue
+                        else:
+                            sys.stderr.write('\n')
+                            raise
+                # f = open(filename, 'w')
             # for item in bag:
             #     f.write(str(item) + '\n')
             # f.close()
