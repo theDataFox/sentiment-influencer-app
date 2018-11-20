@@ -27,7 +27,7 @@ ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 GML_PATH = '../../data/processed'
 DAT_PATH = '../../data/raw'
-FDAT_DIR = '../../data/interim/fdat_SquareMeal'  # input manually for edgelist
+FDAT_DIR = '../../data/interim/fdat_'
 # IMG_DIR = 'img'
 TT_EXT = '.dat'
 FDAT_EXT = '.f'
@@ -190,26 +190,6 @@ def _replace_opener():
         sys.stderr.write('Setup complete and %s created.\n' % filename)
     opener = urllib2.build_opener(OAuthHandler(consumer, atoken))
     urllib2.install_opener(opener)
-
-
-# def _fetch_img(user_id, avatar):
-#     conn = urllib.urlopen(avatar)
-#     data = conn.read()
-#     info = conn.info().get('Content-Type').lower()
-#     conn.close()
-#     if not os.path.exists(IMG_DIR):
-#         os.makedirs(IMG_DIR)
-#     filename = IMG_DIR + '/' + str(user_id)
-#     if info == 'image/gif':
-#         filename += '.gif'
-#     elif info == 'image/jpeg' or info == 'image/pjpeg':
-#         filename += '.jpg'
-#     elif info == 'image/png':
-#         filename += '.png'
-#     file = open(filename, 'wb')
-#     file.write(data)
-#     file.close()
-#     return filename
 
 def resolve(args):
     for sn in args.screen_name:
@@ -455,7 +435,7 @@ def edgelist(args):
     for user_id, val in dat.iteritems():
         if not args.ego and val[1] in args.screen_name:
             continue
-        if not args.missing and not os.path.isfile(FDAT_DIR  + '/' + str(user_id) + FDAT_EXT):
+        if not args.missing and not os.path.isfile(FDAT_DIR + sn + '/' + str(user_id) + FDAT_EXT):
             continue
         e.write('''  node [
     id %s
@@ -471,21 +451,21 @@ def edgelist(args):
         lfr = (10 * float(val[5]) / float(val[4])) if float(val[4]) > 0 else 0  # listed to followers ratio
         e.write('\n    ffr %.4f' % ffr)
         e.write('\n    lfr %.4f' % lfr)
-        if len(args.screen_name) > 1:
-            sid = [i for i, s in enumerate(args.screen_name) if s == val[11]][0]
-            e.write('\n    shape "%s"' % SHAPES[sid])
-        else:
-            if ffr > 1:
-                e.write('\n    shape "triangle-up"')
-            else:
-                e.write('\n    shape "triangle-down"')
+        # if len(args.screen_name) > 1:
+        #     sid = [i for i, s in enumerate(args.screen_name) if s == val[11]][0]
+        #     e.write('\n    shape "%s"' % SHAPES[sid])
+        # else:
+        #     if ffr > 1:
+        #         e.write('\n    shape "triangle-up"')
+        #     else:
+        #         e.write('\n    shape "triangle-down"')
         e.write('\n  ]\n')
 
     for id1, val in dat.iteritems():
 
         if id1 in id0.keys():
             continue
-        if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(id1) + FDAT_EXT):
+        if not args.missing and not os.path.isfile(FDAT_DIR + sn + '/' + str(id1) + FDAT_EXT):
             continue
         if args.ego:
             for idzero in id0.values():
@@ -498,7 +478,7 @@ def edgelist(args):
     weight %s
   ]
 ''' % (j, idzero, val[0], float(val[6]) / d if float(d) > 0 else 0))
-        filename = FDAT_DIR + '/' + str(id1) + FDAT_EXT
+        filename = FDAT_DIR + sn + '/' + str(id1) + FDAT_EXT
         if os.path.isfile(filename):
             fdat = open(filename).readlines()
             for line in fdat:
@@ -506,7 +486,7 @@ def edgelist(args):
                 if dat.has_key(id2):
                     if not args.ego and id2 in id0.keys():
                         continue
-                    if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(id2) + FDAT_EXT):
+                    if not args.missing and not os.path.isfile(FDAT_DIR + sn + '/' + str(id2) + FDAT_EXT):
                         continue
                     d = _days(dat[id2][7])
                     j += 1
