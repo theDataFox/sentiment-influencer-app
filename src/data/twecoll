@@ -451,14 +451,6 @@ def edgelist(args):
         lfr = (10 * float(val[5]) / float(val[4])) if float(val[4]) > 0 else 0  # listed to followers ratio
         e.write('\n    ffr %.4f' % ffr)
         e.write('\n    lfr %.4f' % lfr)
-        # if len(args.screen_name) > 1:
-        #     sid = [i for i, s in enumerate(args.screen_name) if s == val[11]][0]
-        #     e.write('\n    shape "%s"' % SHAPES[sid])
-        # else:
-        #     if ffr > 1:
-        #         e.write('\n    shape "triangle-up"')
-        #     else:
-        #         e.write('\n    shape "triangle-down"')
         e.write('\n  ]\n')
 
     for id1, val in dat.iteritems():
@@ -502,13 +494,6 @@ def edgelist(args):
     e.write(']\n')
     e.close()
     sys.stdout.write('GML file created.\n')
-    # try:
-    #     if len(args.screen_name) > 1:
-    #         sys.stdout.write('Shapes mapping: %s -> %s\n' % (args.screen_name, SHAPES[0:len(args.screen_name)]))
-    #     _draw(args)
-    # except:
-    #     sys.stderr.write('Visualization skipped.\n')
-    #     raise
 
 
 # retrieve friends
