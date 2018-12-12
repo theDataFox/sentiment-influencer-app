@@ -91,3 +91,4 @@ local.json
 node_modules/
 **/*.ppk
 reports/gephi/squaremeal.gephi
+data/processed/SquareMeal.gml
