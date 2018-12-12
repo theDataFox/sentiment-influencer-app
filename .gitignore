@@ -90,3 +90,4 @@ local.json
 .twecoll
 node_modules/
 **/*.ppk
+reports/gephi/squaremeal.gephi
