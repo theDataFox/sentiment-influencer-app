@@ -93,3 +93,4 @@ node_modules/
 reports/gephi/squaremeal.gephi
 data/processed/SquareMeal.gml
 *.dat
+*.f
