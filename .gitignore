@@ -94,3 +94,4 @@ reports/gephi/squaremeal.gephi
 data/processed/SquareMeal.gml
 *.dat
 *.f
+*.gml
