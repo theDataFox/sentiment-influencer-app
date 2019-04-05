@@ -5,7 +5,7 @@ Social network influencer app to identify communities, network statistics, with 
 
 Produces multiple files to feed into Sigma.js and React analytics dashboard 
 
-`TODO: `
+`TODO:` Upgarde to Python 3.7
 
 
 Project Organization

@@ -1,3 +1,4 @@
+pip freeze
 numpy
 matplotlib
 networkx
