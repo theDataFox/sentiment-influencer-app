@@ -1,397 +1,895 @@
+#! /usr/bin/python
+# collect tweets, handles and followers main script
+
+import argparse
+import base64
+import codecs
+import csv
 import datetime
+import errno
+import hashlib
+import hmac
 import json
 import os
+import random
+import re
+import socket
+import sys
 import time
+import urllib
+import urllib2
+import urlparse
+from collections import namedtuple
 
-import click
-import lxml.etree as etree
-import urllib.parse
-import yaml
-from TwitterAPI import TwitterAPI, TwitterPager
-from tqdm import tqdm
+__version__ = '1.14'
+ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
-FDAT_DIR = 'fdat'
+GML_PATH = '../../data/processed'
+DAT_PATH = '../../data/raw'
+FDAT_DIR = '../../data/interim/fdat_'
+# IMG_DIR = 'img'
+TT_EXT = '.dat'
+FDAT_EXT = '.f'
+FAV_EXT = '.fav'
+TWT_EXT = '.twt'
+FMAX = 7000
+EDG_EXT = '.gml'
+WAIT_CODES = (400, 503, 429)
+RETRY_CODES = (500, 502, 110)
+SKIP_CODES = (401, 403, 404)
+SHAPES = ['box', 'circle', 'rect', 'triangle-up', 'diamond', 'triangle-down']
+
+Consumer = namedtuple('Consumer', 'key secret')
+Token = namedtuple('Token', 'key secret')
 
 
-def encode_query(query):
-    """
-    To preserve the original query, the query is
-    url-encoded with no safe ("/") characters.
-    """
-    return (urllib.parse.quote(query.strip(), safe=''))
+def _quote(text):
+    return urllib.quote(text, '-._~')
 
 
-def load_config(file='config.yaml'):
-    if os.path.exists(file):
-        with open(file, 'r') as ymlfile:
-            config = yaml.safe_load(ymlfile)
-        return (config)
+def _encode(params):
+    return '&'.join(['%s=%s' % (k, v) for k, v in params])
+
+
+def _parse_uri(req):
+    method = req.get_method()
+    if method == 'POST':
+        uri = req.get_full_url()
+        query = req.get_data() or ''
     else:
-        click.echo('No configuration found.')
-        return (twitter_setup())
-
-
-def write_config(api_key, api_secret_key, file='config.yaml'):
-    config = dict(
-        twitter=dict(
-            api_key=api_key,
-            api_secret_key=api_secret_key
-        )
-    )
-    with open(file, 'w') as ymlfile:
-        yaml.dump(config, ymlfile, default_flow_style=False)
-    return (load_config(file))
-
-
-def create_api(config):
-    api = TwitterAPI(config['twitter']['api_key'],
-                     config['twitter']['api_secret_key'],
-                     auth_type='oAuth2'
-                     )
-    return (api)
-
-
-def respectful_api_request(*args):
-    '''Respects api limits and retries after waiting.'''
-    r = api.request(*args)
-    if r.headers['x-rate-limit-remaining'] == '0':
-        waiting_time = int(
-            r.headers['x-rate-limit-reset']) - int(round(time.time()))
-        click.echo(
-            'Hit the API limit. Waiting for refresh at {}.'
-                .format(datetime.datetime.utcfromtimestamp(int(r.headers['x-rate-limit-reset']))
-                        .strftime('%Y-%m-%dT%H:%M:%SZ')))
-        time.sleep(waiting_time)
-        return (respectful_api_request(*args))
-    return (r)
-
-
-def collect_friends(account_id, cursor=-1, over5000=False):
-    '''Get IDs of the accounts a given account follows
-    over5000 allows to collect more than 5000 friends'''
-    ids = []
-    r = respectful_api_request(
-        'friends/ids', {'user_id': account_id, 'cursor': cursor})
-
-    # todo: wait if api requests are exhausted
-
-    if 'errors' in r.json():
-        if r.json()['errors'][0]['code'] == 34:
-            return (ids)
-
-    for item in r:
-        if isinstance(item, int):
-            ids.append(item)
-        elif 'message' in item:
-            print('{0} ({1})'.format(item['message'], item['code']))
-
-    if over5000:
-        if 'next_cursor' in r.json:
-            if r.json['next_cursor'] != 0:
-                ids = ids + collect_friends(account_id, r.json['next_cursor'])
-
-    return (ids)
-
-
-def get_friends(friend_id):
-    friends = []
-    try:
-        with open('{0}/{1}.f'.format(FDAT_DIR, friend_id)) as f:
-            for line in f:
-                friends.append(int(line))
-    except:
-        pass
-    return (friends)
-
-
-def save_friends(user, ids):
-    with open('{0}/{1}.f'.format(FDAT_DIR, user), 'w', encoding='utf-8') as f:
-        f.write(str.join('\n', (str(x) for x in ids)))
-
-
-def collect_and_save_friends(user, refresh=False):
-    if not refresh and os.path.exists('{0}/{1}.f'.format(FDAT_DIR, user)):
-        return ()
-    else:
-        friends = collect_friends(user)
-        save_friends(user, friends)
-        return ()
-
-
-@click.group()
-def cli():
-    pass
-
-
-# Collect and save Tweets
-@cli.command()
-@click.argument('query', required=False)
-@click.option('-q',
-              help='Optional: search query')
-def tweets(query='', filename='', q=''):
-    '''
-    Collect Tweets by a user (max. 3200) or through a
-    search query (max. last 10 days).
-    '''
-    if filename == '':
-        if q == '' or q is None:
-            filename = '{}.tweets.jsonl'.format(
-                encode_query(query))
+        url = req.get_full_url()
+        if url.find('?') != -1:
+            uri, query = req.get_full_url().split('?', 1)
         else:
-            filename = '{}.tweets.jsonl'.format(encode_query(q))
+            uri = url
+            query = ''
+    return method, uri, query
 
-    if q == '' or q is None:
-        click.echo('Requesting Tweets by @{}'.format(query))
-        r = TwitterPager(api, 'statuses/user_timeline',
-                         {'screen_name': query, 'count': 200, 'tweet_mode': 'extended'})
 
+class Request(urllib2.Request):
+    def __init__(self, url,
+                 data=None, headers={}, origin_req_host=None, unverifiable=False,
+                 method=None, oauth_params={}):
+        urllib2.Request.__init__(
+            self, url, data, headers, origin_req_host, unverifiable)
+        self.method = method
+        self.oauth_params = oauth_params
+
+    def get_method(self):
+        if self.method is not None:
+            return self.method
+        if self.has_data():
+            return 'POST'
+        else:
+            return 'GET'
+
+
+class OAuthHandler(urllib2.BaseHandler):
+    def __init__(self, consumer, token=None, timeout=None):
+        self.consumer = consumer
+        self.token = token
+        self.timeout = timeout
+
+    def get_signature(self, method, uri, query):
+        key = '%s&' % _quote(self.consumer.secret)
+        if self.token is not None:
+            key += _quote(self.token.secret)
+        signature_base = '&'.join((method.upper(), _quote(uri), _quote(query)))
+        signature = hmac.new(str(key), signature_base, hashlib.sha1)
+        return base64.b64encode(signature.digest())
+
+    def http_request(self, req):
+        if not req.has_header('Host'):
+            req.add_header('Host', req.get_host())
+        method, uri, query = _parse_uri(req)
+        if method == 'POST':
+            req.add_header('Content-type', 'application/x-www-form-urlencoded')
+
+        query = map(lambda (k, v): (k, urllib.quote(v)), urlparse.parse_qsl(query))
+
+        oauth_params = [
+            ('oauth_consumer_key', self.consumer.key),
+            ('oauth_signature_method', 'HMAC-SHA1'),
+            ('oauth_timestamp', int(time.time())),
+            ('oauth_nonce', ''.join([random.choice(ALPHANUM) for i in range(16)])),
+            ('oauth_version', '1.0')]
+        if self.token is not None:
+            oauth_params.append(('oauth_token', self.token.key))
+        if hasattr(req, 'oauth_params'):
+            oauth_params += req.oauth_params.items()
+
+        query += oauth_params
+        query.sort()
+        signature = self.get_signature(method, uri, _encode(query))
+
+        oauth_params.append(('oauth_signature', _quote(signature)))
+        oauth_params.sort()
+
+        auth = ', '.join(['%s="%s"' % (k, v) for k, v in oauth_params])
+        req.headers['Authorization'] = 'OAuth ' + auth
+
+        req = Request(req.get_full_url(), \
+                      data=req.get_data(), \
+                      headers=req.headers, \
+                      origin_req_host=req.get_origin_req_host(), \
+                      unverifiable=req.is_unverifiable(), \
+                      method=method)
+
+        req.timeout = self.timeout
+        return req
+
+    def https_request(self, req):
+        return self.http_request(req)
+
+
+# .twecoll key located in root dir
+def _replace_opener():
+    filename = '../..' + '/.' + os.path.basename(sys.argv[0])
+    if os.path.isfile(filename):
+        f = open(filename, 'r')
+        lines = f.readlines()
+        print lines
+        key = lines[0].strip()
+        secret = lines[1].strip()
     else:
-        click.echo('Requesting Tweets with the search query {}'.format(q))
-        r = TwitterPager(api, 'search/tweets',
-                         {'q': q, 'count': 100, 'tweet_mode': 'extended'})
+        sys.stderr.write('''TWITTER API AUTHENTICATION SETUP
+(1) Open the following link in your browser and register this script...
+'>>> https://apps.twitter.com/\n''')
+        sys.stderr.write('What is its consumer key? ')
+        key = sys.stdin.readline().rstrip('\r\n')
+        sys.stderr.write('What is its consumer secret? ')
+        secret = sys.stdin.readline().rstrip('\r\n')
+        lines = [key, secret]
+    consumer = Consumer(key, secret)
+    try:
+        oauth = lines[2].strip()
+        oauth_secret = lines[3].strip()
+        atoken = Token(oauth, oauth_secret)
+    except IndexError:
+        opener = urllib2.build_opener(OAuthHandler(consumer))
+        resp = opener.open(Request('https://api.twitter.com/oauth/request_token'))
+        rtoken = urlparse.parse_qs(resp.read())
+        rtoken = Token(rtoken['oauth_token'][0], rtoken['oauth_token_secret'][0])
+        sys.stderr.write('''(2) Now, open this link and authorize the script...
+'>>> https://api.twitter.com/oauth/authorize?oauth_token=%s\n''' % rtoken.key)
+        sys.stderr.write('What is the PIN? ')
+        verifier = sys.stdin.readline().rstrip('\r\n')
+        opener = urllib2.build_opener(OAuthHandler(consumer, rtoken))
+        resp = opener.open( \
+            Request('https://api.twitter.com/oauth/access_token', \
+                    oauth_params={'oauth_verifier': verifier}))
+        atoken = urlparse.parse_qs(resp.read())
+        atoken = Token(atoken['oauth_token'][0], atoken['oauth_token_secret'][0])
+        f = open(filename, 'w')
+        f.write(key + '\n')
+        f.write(secret + '\n')
+        f.write(atoken.key + '\n')
+        f.write(atoken.secret + '\n')
+        f.close()
+        sys.stderr.write('Setup complete and %s created.\n' % filename)
+    opener = urllib2.build_opener(OAuthHandler(consumer, atoken))
+    urllib2.install_opener(opener)
 
-    n = 0
-    with open(filename, 'a', encoding='utf-8') as f:
-        for item in r.get_iterator(wait=2):
-            n += 1
-            if n % 1000 == 0:
-                click.echo('{0} Tweets received. Oldest from {1}.'.format(
-                    n, item['created_at']))
-            if 'full_text' in item:
-                json.dump(item, f)
-                f.write('\n')
-            elif 'message' in item and item['code'] == 88:
-                click.echo(
-                    'SUSPEND, RATE LIMIT EXCEEDED: {}\n'.format(item['message']))
+
+# def _fetch_img(user_id, avatar):
+#     conn = urllib.urlopen(avatar)
+#     data = conn.read()
+#     info = conn.info().get('Content-Type').lower()
+#     conn.close()
+#     if not os.path.exists(IMG_DIR):
+#         os.makedirs(IMG_DIR)
+#     filename = IMG_DIR + '/' + str(user_id)
+#     if info == 'image/gif':
+#         filename += '.gif'
+#     elif info == 'image/jpeg' or info == 'image/pjpeg':
+#         filename += '.jpg'
+#     elif info == 'image/png':
+#         filename += '.png'
+#     file = open(filename, 'wb')
+#     file.write(data)
+#     file.close()
+#     return filename
+
+def resolve(args):
+    for sn in args.screen_name:
+        try:
+            if sn.isdigit():
+                url = 'https://api.twitter.com/1.1/users/show.json?user_id=%s'
+            else:
+                url = 'https://api.twitter.com/1.1/users/show.json?screen_name=%s'
+            conn = urllib2.urlopen(url % sn)
+        except urllib2.HTTPError, e:
+            if e.code in SKIP_CODES:
+                sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, sn))
+                continue
+            else:
+                raise
+        data = json.loads(conn.read())
+        conn.close()
+        if sn.isdigit():
+            sys.stdout.write(data['screen_name'] + ' ')
+        else:
+            sys.stdout.write(data['id_str'] + ' ')
+        sys.stdout.write('(%s friends | %s followers | %s memberships | %s tweets)\n' % ( \
+            data['friends_count'], data['followers_count'], data['listed_count'], data['statuses_count']))
+
+
+class CursorError(urllib2.HTTPError):
+    def __init__(self, code, cursor=None, res=None, headers=None):
+        urllib2.HTTPError.__init__(self, None, code, None, None, None)
+        self.cursor = cursor
+        self.res = res
+        self.headers = headers
+
+
+# Results are given in groups of 5,000
+def _ids(relation, param, c=None, init=None):
+    res = init or []
+    cursor = c or -1
+    while True:
+        try:
+            url = 'https://api.twitter.com/1.1/%s/ids.json?%s&cursor=%s'
+            conn = urllib2.urlopen(url % (relation, param, cursor))
+        except urllib2.HTTPError, e:
+            raise CursorError(e.code, cursor, res, e.headers)
+        data = json.loads(conn.read())
+        conn.close()
+        res = res + data['ids']
+        if data['next_cursor'] != 0:
+            cursor = data['next_cursor']
+        else:
+            break
+    return res
+
+
+def _members(param, c=None, init=None):
+    res = init or []
+    cursor = c or -1
+    while True:
+        try:
+            url = 'https://api.twitter.com/1.1/lists/members.json?%s&cursor=%s&include_entities=false&skip_status=true'
+            conn = urllib2.urlopen(url % (param, cursor))
+        except urllib2.HTTPError, e:
+            raise CursorError(e.code, cursor, res)
+        data = json.loads(conn.read())
+        conn.close()
+        for user in data['users']:
+            res.append(user['id'])
+        if data['next_cursor'] != 0:
+            cursor = data['next_cursor']
+        else:
+            break
+    return res
+
+
+# first retrieve list of IDs from relation, tweets or list memberships
+# then retrieve details for each 100 at a time
+def init(args):
+    if args.l:
+        type = args.l
+    else:
+        type = 'followers' if args.followers else 'friends'
+    if args.query:
+        # retrieve handles from file
+        bag = []
+        users = []
+        for tweet in open(args.screen_name + TWT_EXT):
+            handles = re.findall(r'@([\w]+)', tweet.lower())
+            if len(handles) > 0:
+                if args.nomention:
+                    handles = [handles[0]]
+                bag += handles
+                users.append(handles[0])
+        bag = list(set(bag))
+        users = list(set(users))
+    else:
+        # retrieve IDs from relationship
+        cursor = res = None
+        while True:
+            try:
+                if args.l:
+                    bag = _members('slug=' + args.l + '&owner_screen_name=' + args.screen_name, cursor, res)
+                else:
+                    url = 'https://api.twitter.com/1.1/users/show.json?screen_name=%s'
+                    conn = urllib2.urlopen(url % args.screen_name)
+                    data = json.loads(conn.read())
+                    conn.close()
+                    bag = [data['id']] + _ids(type, 'screen_name=' + args.screen_name, cursor, res)
                 break
-    click.echo('Saved {0} Tweets in {1}'.format(n, filename))
-    return
+            except CursorError, e:
+                if e.code in WAIT_CODES:
+                    waiting_time = 900
+                    sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume...' % \
+                                     (e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60))
+                    time.sleep(waiting_time)
+                    cursor = e.cursor
+                    res = e.res
+                    sys.stderr.write('\n')
+                    continue
+                else:
+                    raise
+    filename = DAT_PATH + '/' + args.screen_name + TT_EXT
+    if not args.force and os.path.isfile(filename):
+        # ignore previously processed data found in file
+        f = open(filename, 'r+')
+        for item in csv.reader(f):
+            try:
+                bag.remove(item[1].lower() if args.query else int(item[0]))
+            except:
+                continue
+    else:
+        f = open(filename, 'w')
+    # retrieve details for all IDs in the bag
+    while len(bag) > 0:
+        next_items = []
+        if len(bag) > 100:
+            while len(next_items) < 100:
+                next_items = [bag.pop() for _ in xrange(100)]
+        else:
+            next_items = bag
+            bag = []
+        sys.stdout.write('Processing %i starting from %s...\n' % (len(next_items), next_items[0]))
+        try:
+            if isinstance(next_items[0], str):
+                url = 'https://api.twitter.com/1.1/users/lookup.json?screen_name=%s&include_entities=false'
+                items_str = ','.join(next_items)
+            else:
+                url = 'https://api.twitter.com/1.1/users/lookup.json?user_id=%s&include_entities=false'
+                items_str = ','.join(map(str, next_items))
+            conn = urllib2.urlopen(url % items_str)
+        except (urllib2.HTTPError, socket.error) as e:
+            if hasattr(e, 'code') and e.code in SKIP_CODES:
+                # 404 if no lookup criteria could be satisified
+                sys.stdout.write('HTTPError %s starting from %s. Skipping...\n' % (e.code, next_items[0]))
+                continue
+            elif (hasattr(e, 'code') and e.code in RETRY_CODES) or \
+                    (hasattr(e, 'errno') and e.errno in (errno.ECONNRESET, errno.EAGAIN)):
+                bag += next_items
+                sys.stderr.write('HTTPError %s starting from %s. Deferred...' % (e.code, next_items[0]))
+                sys.stderr.flush()
+                time.sleep(random.randint(10, 30))
+                sys.stderr.write('\n')
+                continue
+            elif hasattr(e, 'code') and e.code in WAIT_CODES:
+                bag += next_items
+                waiting_time = 900
+                sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
+                    e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(bag)))
+                sys.stderr.flush()
+                time.sleep(waiting_time)
+                sys.stderr.write('\n')
+                continue
+            else:
+                sys.stderr.write('\n')
+                raise
+        response = json.loads(conn.read())
+        conn.close()
+        # write details for each block to disk
+        for data in response:
+            user_id = data['id_str']
+            name = data['screen_name']
+            url = data['url'] if data['url'] is not None else ''
+            # avatar = data['profile_image_url'] if data['profile_image_url'] is not None else ''
+            # if avatar != '':
+            #     try:
+            #         avatar = _fetch_img(user_id, avatar)
+            #     except:
+            #         avatar = ''
+            location = data['location'].replace(',', ' ').replace('\n', ' ').replace('\r', ' ')
+            f.write(user_id + \
+                    ',' + name + \
+                    ',' + ('mention' if args.query and name.lower() not in users else type) + \
+                    ',' + str(data['friends_count']) + \
+                    ',' + str(data['followers_count']) + \
+                    ',' + str(data['listed_count']) + \
+                    ',' + str(data['statuses_count']) + \
+                    ',' + data['created_at'] + \
+                    ',' + url.encode('ascii', 'replace') + \
+                    #  ',' + avatar + \
+                    ',' + location.encode('ascii', 'replace') + '\n')
 
 
-def load_ids_from_file(filename):
-    ids = []
-    with open('{}'.format(encode_query(filename)), 'r', encoding='utf-8') as f:
-        for number, line in enumerate(f):
-            item = json.loads(line)
-            ids.append(item['user']['id'])
-    return (list(set(ids)))
+def _days(created):
+    t = time.localtime()
+    c = time.strptime(created, "%a %b %d %H:%M:%S +0000 %Y")
+    return datetime.timedelta(seconds=(time.mktime(t) - time.mktime(c))).days
 
 
-def load_tweets_from_file(query):
-    tweets = []
-    with open('{}.tweets.jsonl'.format(encode_query(query)), 'r', encoding='utf-8') as f:
-        for number, line in enumerate(f):
-            item = json.loads(line)
-            tweets.append(item)
-    return (tweets)
+# support commenting out lines in file
+def _skip_hash(iterable):
+    for line in iterable:
+        if not line.startswith('#'):
+            yield line
 
 
-def load_accounts_from_file(query):
-    accounts = []
-    with open('{}.accounts.jsonl'.format(encode_query(query)), 'r', encoding='utf-8') as f:
-        for number, line in enumerate(f):
-            item = json.loads(line)
-            accounts.append(item)
-    return (accounts)
+# generate GML file readable by Gephi or igraph
+def edgelist(args):
+    if os.name == 'nt':
+        csv.field_size_limit(2147483647)
+    else:
+        csv.field_size_limit(sys.maxsize)
+    dat = {}
+    i = 0
+    for sn in args.screen_name:
+        for item in csv.reader(_skip_hash(open(DAT_PATH + '/' + sn + TT_EXT))):
+            if not dat.has_key(item[0]):
+                dat[item[0]] = [i] + item[1:11] + [sn]
+                i = i + 1
+                # key: user id
+                # col 0: GML id
+                # col 1: screen name
+                # col 2: friends or followers or list name
+                # col 3: friend count
+                # col 4: follower count
+                # col 5: listed count
+                # col 6: tweets
+                # col 7: date joined
+                # col 8: url
+                # col 10: location
+                # col 11: handle arg
+    id0 = {user_id: val[0] for user_id, val in dat.iteritems() if val[1] in args.screen_name}
+    e = open(GML_PATH + '/' + '_'.join(args.screen_name) + EDG_EXT, 'w')
+    e.write('graph [\n  directed 1\n')
+    j = 0
+    for user_id, val in dat.iteritems():
+        if not args.ego and val[1] in args.screen_name:
+            continue
+        if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(user_id) + FDAT_EXT):
+            continue
+        e.write('''  node [
+    id %s
+    user_id "%s"
+    file "%s.dat"
+    label "%s"
+    type "%s"
+    statuses %s
+    friends %s
+    followers %s
+    listed %s''' % (val[0], user_id, val[10], val[1], val[2], val[6], val[3], val[4], val[5]))
+        ffr = (float(val[4]) / float(val[3])) if float(val[3]) > 0 else 0  # friends to followers ratio
+        lfr = (10 * float(val[5]) / float(val[4])) if float(val[4]) > 0 else 0  # listed to followers ratio
+        e.write('\n    ffr %.4f' % ffr)
+        e.write('\n    lfr %.4f' % lfr)
+        if len(args.screen_name) > 1:
+            sid = [i for i, s in enumerate(args.screen_name) if s == val[11]][0]
+            e.write('\n    shape "%s"' % SHAPES[sid])
+        else:
+            if ffr > 1:
+                e.write('\n    shape "triangle-up"')
+            else:
+                e.write('\n    shape "triangle-down"')
+        e.write('\n  ]\n')
+
+    for id1, val in dat.iteritems():
+
+        if id1 in id0.keys():
+            continue
+        if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(id1) + FDAT_EXT):
+            continue
+        if args.ego:
+            for idzero in id0.values():
+                d = _days(val[7])
+                j += 1
+                e.write('''  edge [
+    id %s            
+    source %s
+    target %s
+    size %s
+  ]
+''' % (j, idzero, val[0], float(val[6]) / d if float(d) > 0 else 0))
+        filename = FDAT_DIR + '/' + str(id1) + FDAT_EXT
+        if os.path.isfile(filename):
+            fdat = open(filename).readlines()
+            for line in fdat:
+                id2 = line.strip()
+                if dat.has_key(id2):
+                    if not args.ego and id2 in id0.keys():
+                        continue
+                    if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(id2) + FDAT_EXT):
+                        continue
+                    d = _days(dat[id2][7])
+                    j += 1
+                    e.write('''  edge [
+    id %s    
+    source %s
+    target %s
+    size %s
+  ]
+''' % (j, val[0], dat[id2][0], float(dat[id2][6]) / d if float(d) > 0 else 0))
+        else:
+            sys.stdout.write('Missing data for %s\n' % dat[id1][1])
+    e.write(']\n')
+    e.close()
+    sys.stdout.write('GML file created.\n')
+    # try:
+    #     if len(args.screen_name) > 1:
+    #         sys.stdout.write('Shapes mapping: %s -> %s\n' % (args.screen_name, SHAPES[0:len(args.screen_name)]))
+    #     _draw(args)
+    # except:
+    #     sys.stderr.write('Visualization skipped.\n')
+    #     raise
 
 
-@cli.command()
-@click.argument('query')
-def network(query):
-    """Generate Retweet network .gexf."""
-
-    tweets = load_tweets_from_file(query)
-    filename = '{}.retweetnetwork.gexf'.format(encode_query(query))
-
-    attr_qname = etree.QName(
-        "http://www.w3.org/2001/XMLSchema-instance", "schemaLocation")
-
-    gexf = etree.Element('gexf',
-                         {attr_qname: 'http://www.gexf.net/1.3draft  http://www.gexf.net/1.3draft/gexf.xsd'},
-                         nsmap={
-                             None: 'http://graphml.graphdrawing.org/xmlns/graphml'},
-                         version='1.3')
-
-    graph = etree.SubElement(gexf,
-                             'graph',
-                             defaultedgetype='directed',
-                             mode='dynamic',
-                             timeformat='datetime')
-    attributes = etree.SubElement(
-        graph, 'attributes', {'class': 'node', 'mode': 'static'})
-    etree.SubElement(attributes, 'attribute', {
-        'id': 'location', 'title': 'location', 'type': 'string'})
-    etree.SubElement(attributes, 'attribute', {
-        'id': 'name', 'title': 'name', 'type': 'string'})
-
-    nodes = etree.SubElement(graph, 'nodes')
-    edges = etree.SubElement(graph, 'edges')
-    for tweet in reversed(tweets):
-        node = etree.SubElement(nodes,
-                                'node',
-                                id=tweet['user']['id_str'],
-                                Label=tweet['user']['screen_name'],
-                                start=datetime.datetime.strptime(tweet['created_at'], '%a %b %d %X %z %Y').isoformat(
-                                    timespec='seconds'),  # Fri Jul 27 07:52:57 +0000 2018
-                                end=(datetime.datetime.strptime(
-                                    tweet['created_at'], '%a %b %d %X %z %Y') + datetime.timedelta(
-                                    seconds=1)).isoformat(timespec='seconds')
-                                )
-        attvalues = etree.SubElement(node, 'attvalues')
-        if 'location' in tweet['user']:
-            etree.SubElement(attvalues,
-                             'attvalue',
-                             for_='location',
-                             value=tweet['user']['location']
-                             )
-        if 'name' in tweet['user']:
-            etree.SubElement(attvalues,
-                             'attvalue',
-                             for_='name',
-                             value=tweet['user']['name']
-                             )
-        if 'retweeted_status' in tweet:
-            etree.SubElement(edges,
-                             'edge',
-                             {'id': tweet['id_str'],
-                              'source': tweet['user']['id_str'],
-                              'target': tweet['retweeted_status']['user']['id_str'],
-                              # Fri Jul 27 07:52:57 +0000 2018
-                              'start': datetime.datetime.strptime(tweet['created_at'], '%a %b %d %X %z %Y').isoformat(
-                                  timespec='seconds'),
-                              'end': (datetime.datetime.strptime(tweet['created_at'],
-                                                                 '%a %b %d %X %z %Y') + datetime.timedelta(
-                                  seconds=1)).isoformat(timespec='seconds')
-                              })
-
-    # save to file
-    with open(filename, 'w', encoding='utf-8')as f:
-        f.write(etree.tostring(gexf, encoding='utf8',
-                               method='xml').decode('utf-8'))
-
-    # fix 'for' attributes
-    content = ''
-    with open(filename, 'r', encoding='utf-8') as f:
-        content = f.read()
-    with open(filename, 'w', encoding='utf-8') as f:
-        content = content.replace('for_', 'for')
-        f.write(content)
-    click.echo('Generated {}'.format(filename))
-    return ()
+# retrieve friends
+def fetch(args):
+    if os.name == 'nt':
+        csv.field_size_limit(2147483647)
+    else:
+        csv.field_size_limit(sys.maxsize)
+    dat = [item for item in csv.reader(_skip_hash(open(DAT_PATH + '/' + args.screen_name + TT_EXT)))]
+    if not os.path.exists(FDAT_DIR):
+        os.makedirs(FDAT_DIR)
+    cursor = res = None
+    while len(dat) > 0:
+        if cursor is None:
+            item = dat.pop()
+        if int(item[3]) > args.count:
+            sys.stdout.write('Skipping %s (%s %s)\n' % (item[1], item[3], 'friends'))
+            continue
+        filename = FDAT_DIR + '/' + str(item[0]) + FDAT_EXT
+        if args.force or not os.path.isfile(filename):
+            sys.stdout.write('Processing %s...\n' % item[0])
+            try:
+                bag = _ids('friends', 'user_id=' + str(item[0]), cursor, res)
+                cursor = res = None
+                with open(filename, 'w') as f:
+                    for item in bag:
+                        f.write(str(item) + '\n')
+                    f.close()
+            except (CursorError, socket.error) as e:
+                if hasattr(e, 'code') and e.code in SKIP_CODES:
+                    sys.stdout.write('HTTPError %s with %s. Skipping...\n' % \
+                                     (e.code, item[0]))
+                    cursor = res = None
+                    continue
+                elif (hasattr(e, 'code') and e.code in RETRY_CODES) or \
+                        (hasattr(e, 'errno') and e.errno in (errno.ECONNRESET, errno.EAGAIN)):
+                    sys.stderr.write('HTTPError %s with %s. Deferred...' % \
+                                     (e.code, item[0]))
+                    sys.stderr.flush()
+                    dat.append(item)
+                    time.sleep(random.randint(10, 30))
+                    cursor = res = None
+                    sys.stderr.write('\n')
+                    continue
+                elif hasattr(e, 'code') and e.code in WAIT_CODES:
+                    waiting_time = 900
+                    sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
+                        e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
+                    sys.stderr.flush()
+                    time.sleep(waiting_time)
+                    cursor = e.cursor
+                    res = e.res
+                    sys.stderr.write('\n')
+                    continue
+                else:
+                    sys.stderr.write('\n')
+                    raise
+            # f = open(filename, 'w')
+            # for item in bag:
+            #     f.write(str(item) + '\n')
+            # f.close()
 
 
-@cli.command()
-@click.argument('query')
-def edgelist(query):
-    '''Generate follow network .gdf.'''
-
-    accounts = load_accounts_from_file(query)
-    account_ids = []
-    filename = '{}.follownetwork.gdf'.format(encode_query(query))
-
-    with open(filename, 'w', encoding='utf-8') as f:
-        f.write('nodedef>name VARCHAR,label VARCHAR,location VARCHAR\n')
-        with click.progressbar(accounts) as accounts_bar:
-            for account in accounts_bar:
-                account_ids.append(account['id'])
-                f.write('{0},{1},"{2}"\n'.format(
-                    account['id'],
-                    account['screen_name'],
-                    account['location'].replace('"', '\'')))
-
-        f.write('edgedef>node1 VARCHAR,node2 VARCHAR,directed BOOLEAN\n')
-        with click.progressbar(account_ids) as ids_bar:
-            for account_id in ids_bar:
-                friends_ids = get_friends(account_id)
-                for friend_id in friends_ids:
-                    if friend_id in account_ids:
-                        f.write('{0},{1},true\n'.format(friend_id, account_id))
-
-
-@cli.command()
-def twitter_setup():
-    click.echo('Go to https://developer.twitter.com/apps to create an app.')
-    api_key = click.prompt('Please enter the API key')
-    api_key_secret = click.prompt('Please enter the API key secret')
-    """Enter and save Twitter app credentials."""
-    return (write_config(api_key, api_key_secret))
-
-
-@cli.command()
-@click.argument('query')
-def init(query):
-    """Extract Twitter-Accounts from Tweets JSONL."""
-    extracted_accounts = []
-    with open('{}.tweets.jsonl'.format(encode_query(query)), 'r', encoding='utf-8') as f:
-        with open('{}.accounts.jsonl'.format(encode_query(query)), 'w', encoding='utf-8') as output:
-            for number, line in enumerate(f):
-                item = json.loads(line)
-                if item['user']['id'] not in extracted_accounts:
-                    json.dump(item['user'], output)
-                    output.write('\n')
-                    extracted_accounts.append(item['user']['id'])
-    click.echo('{} accounts extracted'.format(len(extracted_accounts)))
-    return ()
+def _destroy(screen_name):
+    filename = screen_name + FAV_EXT
+    dat = [line[:20].strip() for line in open(filename, 'rU')]
+    while len(dat) > 0:
+        item = dat.pop()
+        sys.stdout.write('Purging %s...\n' % item)
+        try:
+            url = 'https://api.twitter.com/1.1/favorites/destroy.json'
+            data = {'id': item}
+            conn = urllib2.urlopen(url, urllib.urlencode(data))
+        except urllib2.HTTPError, e:
+            if e.code in SKIP_CODES:
+                sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item))
+                continue
+            elif e.code in RETRY_CODES:
+                sys.stderr.write('HTTPError %s. Deferred...' % e.code)
+                sys.stderr.flush()
+                time.sleep(random.randint(10, 30))
+                dat.append(item)
+                sys.stderr.write('\n')
+                continue
+            elif e.code in WAIT_CODES:
+                waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10, 30)
+                sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
+                    e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
+                sys.stderr.flush()
+                time.sleep(waiting_time + random.randint(10, 30))
+                dat.append(item)
+                sys.stderr.write('\n')
+                continue
+            else:
+                sys.stderr.write('\n')
+                raise
+        data = json.loads(conn.read())
+        conn.close()
 
 
-@cli.command()
-@click.argument('query')
-def fetch(query):
-    """Collect followings of accounts in a JSONL."""
-    account_ids = []
-    with open('{}.accounts.jsonl'.format(encode_query(query)), 'r', encoding='utf-8') as f:
-        for number, line in enumerate(f):
-            item = json.loads(line)
-            account_ids.append(item['id'])
-    account_ids = list(set(account_ids))
-    for account_id in tqdm(account_ids):
-        collect_and_save_friends(account_id)
-    click.echo('Tried to fetch {} accounts'.format(len(account_ids)))
-    return ()
+# retrieve and optionally purge favorites
+def likes(args):
+    if args.purge:
+        sys.stderr.write('Press any key to purge likes or Ctrl-C to abort...')
+        sys.stderr.flush()
+        while not sys.stdin.read(1):
+            pass
+        _destroy(args.screen_name)
+    else:
+        filename = args.screen_name + FAV_EXT
+        f = codecs.open(DAT_PATH + '/' + filename, 'w', encoding='utf-8')
+        max_id = None
+        sys.stderr.write('Fetching likes')
+        sys.stderr.flush()
+        while True:
+            try:
+                url = 'https://api.twitter.com/1.1/favorites/list.json?count=%s&screen_name=%s'
+                if max_id:
+                    url += '&max_id=%i' % max_id
+                conn = urllib2.urlopen(url % (200, args.screen_name))
+            except urllib2.HTTPError, e:
+                if e.code in RETRY_CODES:
+                    sys.stderr.write('\nHTTPError %s. Retrying' % e.code)
+                    sys.stderr.flush()
+                    time.sleep(random.randint(10, 30))
+                    sys.stderr.write('\n')
+                    continue
+                elif e.code in WAIT_CODES:
+                    waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,
+                                                                                                                   30)
+                    sys.stderr.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
+                                     (e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60))
+                    sys.stderr.flush()
+                    time.sleep(waiting_time)
+                    sys.stderr.write('\n')
+                    continue
+                else:
+                    sys.stderr.write('\n')
+                    raise
+            data = json.loads(conn.read())
+            conn.close()
+            sys.stderr.write('.')
+            sys.stderr.flush()
+            if len(data) == 0:
+                sys.stderr.write('\n')
+                return
+            for tweet in data:
+                if tweet['id'] == max_id:
+                    if len(data) == 1:
+                        sys.stderr.write('\n')
+                        return
+                    else:
+                        continue
+                max_id = min(max_id, tweet['id']) or tweet['id']
+                f.write('%-20s %30s %-12s @%-20s %s\n' % ( \
+                    tweet['id_str'], \
+                    tweet['created_at'], \
+                    tweet['user']['id_str'], \
+                    tweet['user']['screen_name'], \
+                    tweet['text'].replace('\n', ' ')))
 
 
-@cli.command()
-@click.option('--goal',
-              type=click.Choice(
-                  ['collect tweets', 'retweet network', 'follow network', 'reset keys']),
-              prompt='What do you want to do?',
-              help='Choose a goal.')
-def assistant(goal):
-    """Step by step assistant for new users"""
-    if goal == 'collect tweets':
-        tweet_type = click.prompt(
-            'Which method do you want to use to collect tweets?',
-            type=click.Choice(
-                ['query', 'user']
-            ))
-        if tweet_type == 'query':
-            query = click.prompt('Please enter your search query')
-            tweets(["-q", query])
-        if tweet_type == 'user':
-            query = click.prompt('Please enter the screen name')
-            tweets(query)
-    if goal == 'retweet network':
-        query = click.prompt('Please enter your search query')
-        if not os.path.exists('{}.tweets.jsonl'.format(encode_query(query))):
-            click.echo('Collecting Tweets before generating the network.')
-            tweets(["-q", query])
-        network([query])
-    if goal == 'follow network':
-        click.echo('not implemented yet. sry.')
-    if goal == 'reset keys':
-        twitter_setup([])
-    click.echo('Assistant finished.')
+# retrieve tweets
+def tweets(args):
+    f = codecs.open(DAT_PATH + '/' + args.screen_name + TWT_EXT, 'w', encoding='utf-8')
+    max_id = None
+    sys.stderr.write('Fetching tweets')
+    sys.stderr.flush()
+    while True:
+        try:
+            if args.query:
+                url = 'https://api.twitter.com/1.1/search/tweets.json?q=%s&result_type=recent&count=100&tweet_mode' \
+                      '=extended'
+            elif args.l:
+                url = 'https://api.twitter.com/1.1/lists/statuses.json?slug=' + args.l + \
+                      '&owner_screen_name=%s&count=100&tweet_mode=extended'
+            else:
+                url = 'https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=%s&count=200&tweet_mode' \
+                      '=extended'
+            if max_id:
+                url += '&max_id=%i' % max_id
+            conn = urllib2.urlopen(url % args.screen_name)
+        except urllib2.HTTPError, e:
+            if e.code in RETRY_CODES:
+                sys.stderr.write('\nHTTPError %s. Retrying' % e.code)
+                sys.stderr.flush()
+                continue
+            elif e.code in WAIT_CODES:
+                waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10, 30)
+                sys.stderr.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
+                                 (e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60))
+                sys.stderr.flush()
+                time.sleep(waiting_time)
+                sys.stderr.write('\n')
+                continue
+            else:
+                sys.stderr.write('\n')
+                raise
+        data = json.loads(conn.read())
+        if args.query:
+            data = data['statuses']
+        conn.close()
+        sys.stderr.write('.')
+        sys.stderr.flush()
+        if len(data) == 0:
+            sys.stderr.write('\n')
+            return
+        for tweet in data:
+            if tweet['id'] == max_id:
+                if len(data) == 1:
+                    sys.stderr.write('\n')
+                    return
+                else:
+                    continue
+            max_id = min(max_id, tweet['id']) or tweet['id']
+            if args.query or args.l:
+                f.write('%30s @%-20s %s\n' % (tweet['created_at'], \
+                                              tweet['user']['screen_name'], tweet['full_text'].replace('\n', ' ')))
+            else:
+                f.write('%30s %s\n' % (tweet['created_at'], tweet['full_text'].replace('\n', ' ')))
 
 
-config = load_config()
-if not os.path.exists('{}'.format(FDAT_DIR)):
-    os.mkdir('{}'.format(FDAT_DIR))
-try:
-    api = create_api(config)
-except:
-    click.echo('Something is wrong with your config.')
-    config = twitter_setup()
-    api = create_api(config)
+# find out remaining calls left by endpoint
+class StatsAction(argparse.Action):
+    def __call__(self, parse, namespace, values, option_string=None):
+        _replace_opener()
+        url = 'https://api.twitter.com/1.1/application/rate_limit_status.json?resources=users,friends,statuses,' \
+              'search,favorites'
+        conn = urllib2.urlopen(url)
+        data = json.loads(conn.read())
+        conn.close()
+        sys.stdout.write('init (%s), ' % \
+                         data['resources']['users']['/users/lookup']['remaining'])
+        sys.stdout.write('fetch (%s), ' % \
+                         data['resources']['friends']['/friends/ids']['remaining'])
+        sys.stdout.write('tweets (%s, -q %s), ' % ( \
+            data['resources']['statuses']['/statuses/user_timeline']['remaining'], \
+            data['resources']['search']['/search/tweets']['remaining']))
+        sys.stdout.write('resolve (%s), ' % \
+                         data['resources']['users']['/users/show/:id']['remaining'])
+        sys.stdout.write('likes (%s)\n' % \
+                         data['resources']['favorites']['/favorites/list']['remaining'])
+        sys.exit(0)
+
+
+class QuoteAction(argparse.Action):
+    def __call__(self, parse, namespace, values, option_string=None):
+        if isinstance(values, list):
+            setattr(namespace, self.dest, map(lambda v: urllib.quote(v), values))
+        else:
+            setattr(namespace, self.dest, urllib.quote(values))
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Twitter Collection Tool')
+    sp = parser.add_subparsers(dest='cmd', title='sub-commands')
+
+    sp_resolve = sp.add_parser('resolve', help='retrieve user_id for screen_name or vice versa')
+    sp_resolve.add_argument(dest='screen_name', nargs='+', action=QuoteAction, \
+                            help='Twitter screen name')
+    sp_resolve.set_defaults(func=resolve)
+
+    sp_init = sp.add_parser('init', \
+                            help='retrieve friends data for screen_name')
+    sp_init.add_argument('-o', '--followers', action='store_true', \
+                         help='retrieve followers (default: friends)')
+    sp_init.add_argument('-q', '--query', action='store_true', \
+                         help='extract handles from query (default: screen_name)')
+    sp_init.add_argument('-n', '--nomention', action='store_true', \
+                         help='ignore mentions from query (default: false)')
+    sp_init.add_argument('-m', '--members', dest='l', \
+                         help='extract member handles from list named L')
+    sp_init.add_argument('-f', '--force', action='store_true', \
+                         help='ignore existing %s file (default: False)' % TT_EXT)
+    sp_init.add_argument(dest='screen_name', action=QuoteAction, \
+                         help='Twitter screen name')
+    sp_init.set_defaults(func=init)
+
+    sp_fetch = sp.add_parser('fetch', \
+                             help='retrieve friends of handles in %s file' % TT_EXT)
+    sp_fetch.add_argument('-f', '--force', action='store_true', \
+                          help='ignore existing %s files (default: False)' % FDAT_EXT)
+    sp_fetch.add_argument('-c', dest='count', type=int, default=FMAX, \
+                          help='skip if friends above count (default: %(FMAX)i)' % globals())
+    sp_fetch.add_argument(dest='screen_name', action=QuoteAction, \
+                          help='Twitter screen name')
+    sp_fetch.set_defaults(func=fetch)
+
+    sp_tweets = sp.add_parser('tweets', \
+                              help='retrieve tweets')
+    sp_tweets.add_argument('-q', '--query', action='store_true', \
+                           help='argument is a query (default: screen_name)')
+    sp_tweets.add_argument('-m', '--members', dest='l', \
+                           help='extract tweets from list named L')
+    sp_tweets.add_argument(dest='screen_name', action=QuoteAction, \
+                           help='Twitter screen name')
+    sp_tweets.set_defaults(func=tweets)
+
+    sp_likes = sp.add_parser('likes', \
+                             help='retrieve likes')
+    sp_likes.add_argument('-p', '--purge', action='store_true', \
+                          help='destroy likes (default: False)')
+    sp_likes.add_argument(dest='screen_name', action=QuoteAction, \
+                          help='Twitter screen name')
+    sp_likes.set_defaults(func=likes)
+
+    sp_edgelist = sp.add_parser('edgelist', \
+                                help='generate graph in GML format', \
+                                description='Vertices have the following attributes: twitter user_id, .dat source '
+                                            'file, '
+                                            'label, link to image file, type, statuses, friends, followers, listed, '
+                                            'ffr '
+                                            'and lfr. '
+                                            'Vertices with a friends-to-followers ratio > 1 have a triangle-up '
+                                            'shape, otherwise triangle-down. '
+                                            'Label size is proportional to the in-degree. '
+                                            'Edges have a width based on their weight attribute. '
+                                            'Weight corresponds to the number of tweets per day since the account was '
+                                            'created. '
+                                            'Vertices included in the giant component are colored according to their '
+                                            'membership to a particular community. Otherwise, they are colored in '
+                                            'grey. '
+                                            'Community finding is based on infomap and applied to members of the '
+                                            'giant component. Black is used for vertices with no edges, '
+                                            'with more than %s friends or set to private.' % FMAX)
+    sp_edgelist.add_argument('-f', '--format', default='png', \
+                             choices=('png', 'pdf', 'ps'), \
+                             help='graph output format (default: png)')
+    sp_edgelist.add_argument('-e', '--ego', action='store_true', \
+                             help='include screen_name (default: False)')
+    sp_edgelist.add_argument('-l', '--layout', default='kk', \
+                             choices=('circle', 'fr', 'kk'), \
+                             help='igraph layout (default: kk)')
+    sp_edgelist.add_argument('-s', '--strong', action='store_true', \
+                             help='use strong ties to isolate clusters (default: weak)')
+    sp_edgelist.add_argument('-t', '--transparent', action='store_true', \
+                             help='hide edges in graph (default: visible)')
+    sp_edgelist.add_argument(dest='screen_name', nargs='+', action=QuoteAction, \
+                             help='Twitter screen name')
+    sp_edgelist.add_argument('-m', '--missing', action='store_true', \
+                             help='include missing handles (default: False)')
+    sp_edgelist.set_defaults(func=edgelist)
+
+    parser.add_argument('-s', '--stats', action=StatsAction, nargs=0, \
+                        help='show Twitter throttling stats and exit')
+    parser.add_argument('-v', '--version', action='version', \
+                        version='%(prog)s v' + '%(__version__)s' % globals())
+
+    try:
+        args = parser.parse_args()
+        _replace_opener()
+        args.func(args)
+    except KeyboardInterrupt:
+        sys.stderr.write('\n')
+        return 2
+    except Exception, err:
+        sys.stderr.write(str(err) + '\n')
+        return 1
+    else:
+        sys.stderr.write('Done.\n')
+        return 0
+
 
 if __name__ == '__main__':
-    cli()
+    sys.exit(main())

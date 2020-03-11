@@ -31,7 +31,7 @@ ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 GML_PATH = '../../data/processed'
 DAT_PATH = '../../data/raw'
-FDAT_DIR = '../../data/interim/fdat'
+FDAT_DIR = '../../data/interim/fdat_'
 # IMG_DIR = 'img'
 TT_EXT = '.dat'
 FDAT_EXT = '.f'
