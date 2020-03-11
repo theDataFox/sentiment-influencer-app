@@ -1,4 +1,4 @@
-# script to take edgelist from twecoll.py and run into sigma js for output
+# script to take edgelist from twecoll.py.py and run into sigma js for output
 
 # TODO: read in edgelist file
 # TODO: convert from gml to gexf

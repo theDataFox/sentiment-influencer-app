@@ -88,5 +88,10 @@ data/interim/*
 keyfile.json
 local.json
 .twecoll
+.twecoll2
 node_modules/
 *.ppk
+*.dat
+*.yaml
+*.gml
+

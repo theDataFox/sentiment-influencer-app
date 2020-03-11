@@ -1,11 +1,10 @@
-pip freeze
+lxml
+TwitterAPI
+yaml
+tqdm
 numpy
 matplotlib
 networkx
-# local package
--e .
-
-# external requirements
 tweepy
 click
 Sphinx

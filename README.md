@@ -5,8 +5,16 @@ Social network influencer app to identify communities, network statistics, with 
 
 Produces multiple files to feed into Sigma.js and React analytics dashboard 
 
-`TODO:` Upgarde to Python 3.7
+How to Use
+==============================
+`$ twecoll3 init datafox`
 
+`$ twecoll3 fetch datafox`
+
+`$ twecoll3 edgelist daatfox`
+
+`TODO:` Upgarde to Python 3.7
+==============================
 
 Project Organization
 ------------
