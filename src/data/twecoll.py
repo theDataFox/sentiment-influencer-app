@@ -26,7 +26,7 @@ ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 GML_PATH = '../../data/processed'
 DAT_PATH = '../../data/raw'
-FDAT_DIR = '../../data/interim/fdat_'
+FDAT_DIR = '../../data/interim/fdat'
 # IMG_DIR = 'img'
 TT_EXT = '.dat'
 FDAT_EXT = '.f'
@@ -359,7 +359,7 @@ def init(args):
             conn = urllib2.urlopen(url % items_str)
         except (urllib2.HTTPError, socket.error) as e:
             if hasattr(e, 'code') and e.code in SKIP_CODES:
-                # 404 if no lookup criteria could be satisified
+                # 404 if no lookup criteria could be satisfied
                 sys.stdout.write('HTTPError %s starting from %s. Skipping...\n' % (e.code, next_items[0]))
                 continue
             elif (hasattr(e, 'code') and e.code in RETRY_CODES) or \
@@ -585,10 +585,6 @@ def fetch(args):
                 else:
                     sys.stderr.write('\n')
                     raise
-            # f = open(filename, 'w')
-            # for item in bag:
-            #     f.write(str(item) + '\n')
-            # f.close()
 
 
 def _destroy(screen_name):
