@@ -10,6 +10,7 @@ import errno
 import hashlib
 import hmac
 import json
+import logging
 import os
 import random
 import re
@@ -20,6 +21,8 @@ import urllib
 import urllib2
 import urlparse
 from collections import namedtuple
+
+logging.basicConfig(filename='twecoll.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
 
 __version__ = '1.14'
 ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -242,7 +245,9 @@ class CursorError(urllib2.HTTPError):
         self.headers = headers
 
 
-# Results are given in groups of 5,000
+# Results are in groups of 5,000
+# todo: resume program if connection drops
+# https://stackoverflow.com/questions/20343186/skip-connection-interruptions-site-beautifulsoup
 def _ids(relation, param, c=None, init=None):
     res = init or []
     cursor = c or -1
@@ -532,17 +537,22 @@ def edgelist(args):
 
 # retrieve friends
 def fetch(args):
+    # check OS and apply sizer of csv field limit
     if os.name == 'nt':
         csv.field_size_limit(2147483647)
     else:
         csv.field_size_limit(sys.maxsize)
+    # iterate through the associated dat file
     dat = [item for item in csv.reader(_skip_hash(open(DAT_PATH + '/' + args.screen_name + TT_EXT)))]
+    # create fdat sirectory if it doesn't exist
     if not os.path.exists(FDAT_DIR):
         os.makedirs(FDAT_DIR)
+    # initialise cursor and res
     cursor = res = None
     while len(dat) > 0:
         if cursor is None:
             item = dat.pop()
+        # find handles that have friends greater than threshold set
         if int(item[3]) > args.count:
             sys.stdout.write('Skipping %s (%s %s)\n' % (item[1], item[3], 'friends'))
             continue
