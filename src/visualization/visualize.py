@@ -40,7 +40,5 @@ PORT = 8000
 Handler = http.server.SimpleHTTPRequestHandler
 
 with socketserver.TCPServer(("", PORT), Handler) as httpd:
-    print("serving at port", PORT)
+    print("serving twitter_access_token port", PORT)
     httpd.serve_forever()
-
-

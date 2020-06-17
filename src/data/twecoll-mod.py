@@ -2,10 +2,10 @@ import datetime
 import json
 import os
 import time
+import urllib.parse
 
 import click
 import lxml.etree as etree
-import urllib.parse
 import yaml
 from TwitterAPI import TwitterAPI, TwitterPager
 
@@ -57,7 +57,7 @@ def respectful_api_request(*args):
         waiting_time = int(
             r.headers['x-rate-limit-reset']) - int(round(time.time()))
         click.echo(
-            'Hit the API limit. Waiting for refresh at {}.'
+            'Hit the API limit. Waiting for refresh twitter_access_token {}.'
                 .format(datetime.datetime.utcfromtimestamp(int(r.headers['x-rate-limit-reset']))
                         .strftime('%Y-%m-%dT%H:%M:%SZ')))
         time.sleep(waiting_time)

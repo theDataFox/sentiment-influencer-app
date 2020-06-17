@@ -18,9 +18,10 @@ import socket
 import sys
 import time
 import urllib
+from collections import namedtuple
+
 import urllib2
 import urlparse
-from collections import namedtuple
 
 logging.basicConfig(filename='twecoll.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
 
@@ -29,13 +30,13 @@ ALPHANUM = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 GML_PATH = '../../data/processed'
 DAT_PATH = '../../data/raw'
-FDAT_DIR = '../../data/interim/fdat'
+FDAT_DIR = '../../data/interim/'
 # IMG_DIR = 'img'
 TT_EXT = '.dat'
 FDAT_EXT = '.f'
 FAV_EXT = '.fav'
 TWT_EXT = '.twt'
-FMAX = 7000
+FMAX = 10000
 EDG_EXT = '.gml'
 WAIT_CODES = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
@@ -288,7 +289,7 @@ def _members(param, c=None, init=None):
 
 
 # first retrieve list of IDs from relation, tweets or list memberships
-# then retrieve details for each 100 at a time
+# then retrieve details for each 100 twitter_access_token a time
 def init(args):
     if args.l:
         type = args.l
@@ -324,7 +325,7 @@ def init(args):
             except CursorError, e:
                 if e.code in WAIT_CODES:
                     waiting_time = 900
-                    sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume...' % \
+                    sys.stderr.write('HTTPError %s twitter_access_token %s. Waiting %sm to resume...' % \
                                      (e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60))
                     time.sleep(waiting_time)
                     cursor = e.cursor
@@ -378,7 +379,7 @@ def init(args):
             elif hasattr(e, 'code') and e.code in WAIT_CODES:
                 bag += next_items
                 waiting_time = 900
-                sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
+                sys.stderr.write('HTTPError %s twitter_access_token %s. Waiting %sm to resume (%s items left)...' % (
                     e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(bag)))
                 sys.stderr.flush()
                 time.sleep(waiting_time)
@@ -460,6 +461,8 @@ def edgelist(args):
         if not args.ego and val[1] in args.screen_name:
             continue
         if not args.missing and not os.path.isfile(FDAT_DIR + '/' + str(user_id) + FDAT_EXT):
+            print
+            FDAT_DIR + '/' + str(user_id) + FDAT_EXT
             continue
         e.write('''  node [
     id %s
@@ -584,8 +587,9 @@ def fetch(args):
                     continue
                 elif hasattr(e, 'code') and e.code in WAIT_CODES:
                     waiting_time = 900
-                    sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
-                        e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
+                    sys.stderr.write(
+                        'HTTPError %s twitter_access_token %s. Waiting %sm to resume (%s items left)...' % (
+                            e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
                     sys.stderr.flush()
                     time.sleep(waiting_time)
                     cursor = e.cursor
@@ -620,7 +624,7 @@ def _destroy(screen_name):
                 continue
             elif e.code in WAIT_CODES:
                 waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10, 30)
-                sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (
+                sys.stderr.write('HTTPError %s twitter_access_token %s. Waiting %sm to resume (%s items left)...' % (
                     e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60, len(dat) + 1))
                 sys.stderr.flush()
                 time.sleep(waiting_time + random.randint(10, 30))
@@ -664,7 +668,7 @@ def likes(args):
                 elif e.code in WAIT_CODES:
                     waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,
                                                                                                                    30)
-                    sys.stderr.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
+                    sys.stderr.write('\nHTTPError %s twitter_access_token %s. Waiting %sm to resume...' % \
                                      (e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60))
                     sys.stderr.flush()
                     time.sleep(waiting_time)
@@ -723,7 +727,7 @@ def tweets(args):
                 continue
             elif e.code in WAIT_CODES:
                 waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10, 30)
-                sys.stderr.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
+                sys.stderr.write('\nHTTPError %s twitter_access_token %s. Waiting %sm to resume...' % \
                                  (e.code, time.strftime('%H:%M', time.localtime()), waiting_time / 60))
                 sys.stderr.flush()
                 time.sleep(waiting_time)

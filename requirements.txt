@@ -2,12 +2,22 @@
 # TwitterAPI #for py3
 yaml
 tqdm
-# numpy
-# matplotlib
-# networkx
+numpy~=1.18.1
+pandas~=1.0.1
+matplotlib~=3.0.3
+networkx~=2.4
 tweepy #for py2
-click
+# click
 # Sphinx
 # coverage
-# flake8
-# python-modularity-maximization==0.0.1rc4
+flake8
+python-modularity-maximization==0.0.1rc4
+
+click~=7.1.1
+lxml~=4.5.0
+PyYAML~=5.1
+TwitterAPI~=2.5.10
+python-dotenv~=0.9.1
+requests~=2.21.0
+setuptools~=41.6.0
+igraph~=0.1.11
